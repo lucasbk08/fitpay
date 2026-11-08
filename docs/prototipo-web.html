@@ -819,7 +819,7 @@ function renderSheet() {
         <div class="row"><span>Cobrança</span><b>${tipoNome}</b></div>
         <div class="row"><span>Pagamento</span><b>${MEIOS_INFO[f.meio].nome}</b></div>
         <div class="row"><span>Forma</span><b>${forma}</b></div>
-        <div class="row total"><span>Total</span><b class="num">${p.valor == null ? '—' : BRL.format(p.valor)}</b></div>
+        <div class="row total"><span>Total</span><b class="num">${p.valor == null ? 'a calcular' : BRL.format(p.valor)}</b></div>
       </div>
       ${aluno.bloqueado ? `<p class="note">${ico('alert', 'style="width:16px;height:16px;vertical-align:-3px"')} A matrícula desta aluna está bloqueada.</p>` : ''}
     </div><div class="sheet-foot"><button class="btn btn-primary btn-block" id="confirmar">Cobrar ${p.valor == null ? '' : BRL.format(p.valor)}</button></div>`;
