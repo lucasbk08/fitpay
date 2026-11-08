@@ -1,0 +1,18 @@
+# Maven
+target/
+
+# Compilação manual (javac)
+out/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+bin/
+
+# Sistema
+.DS_Store
+Thumbs.db
