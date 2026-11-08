@@ -630,7 +630,6 @@ function cobrar(instantaneo) {
     renderResultado(falha ? { tipo: 'erro-validacao', msg: falha.message } : { tipo: 'ok', comprovante, cobranca });
     setBusy(false); $('proximo').hidden = true;
   };
-  setBusy(true);
   replay = { mostrados: 0, total, eventos: trace.eventos, final };
   const avancar = () => {
     replay.mostrados++;
