@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FitPay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: balcão de cobrança à esquerda, "por dentro de processar()" à direita; matriz do Bridge e livro-caixa embaixo. Mesma identidade dos slides do Kit G. */
+:root {
+  --bg: #F3F1EC;
+  --surface: #FDFCF9;
+  --surface-2: #ECE8DF;
+  --ink: #14222F;
+  --ink-2: #3E4A56;
+  --muted: #5E6B78;
+  --line: #D9D5CC;
+  --orange: #C2531F;
+  --orange-soft: #FBEDE5;
+  --blue: #2C5F8F;
+  --blue-soft: #E6EEF6;
+  --good: #2E7D4F;
+  --good-soft: #E3F1E8;
+  --warn: #9A6400;
+  --warn-soft: #FBF0DA;
+  --bad: #B3261E;
+  --bad-soft: #FBE6E4;
+  --code-bg: #14222F;
+  --code-ink: #E8ECEF;
+  --code-dim: #8FA1B3;
+  --f-display: 'Space Grotesk', 'Segoe UI', Arial, sans-serif;
+  --f-body: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
+  --f-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1820; --surface: #16222D; --surface-2: #1D2B38; --ink: #ECEFF2; --ink-2: #C3CCD5; --muted: #8E9CAA; --line: #2B3B4A;
+    --orange: #F08A5D; --orange-soft: #3A2419; --blue: #8DB8E0; --blue-soft: #1B2E42;
+    --good: #6FCF97; --good-soft: #17301F; --warn: #F2C063; --warn-soft: #362A12; --bad: #F28B82; --bad-soft: #3A1C1A;
+    --code-bg: #0A1117; --code-ink: #E8ECEF; --code-dim: #7D8E9F; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1820; --surface: #16222D; --surface-2: #1D2B38; --ink: #ECEFF2; --ink-2: #C3CCD5; --muted: #8E9CAA; --line: #2B3B4A;
+  --orange: #F08A5D; --orange-soft: #3A2419; --blue: #8DB8E0; --blue-soft: #1B2E42;
+  --good: #6FCF97; --good-soft: #17301F; --warn: #F2C063; --warn-soft: #362A12; --bad: #F28B82; --bad-soft: #3A1C1A;
+  --code-bg: #0A1117; --code-ink: #E8ECEF; --code-dim: #7D8E9F; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.brand h1 { font-family: var(--f-display); font-size: 34px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
+.brand span { font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--orange); }
+header p { margin: 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel h2 { font-family: var(--f-display); font-size: 20px; font-weight: 700; margin: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+legend { font-size: 12px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 8px; }
+.seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { cursor: pointer; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 2px; flex: 1 1 120px; min-width: 0; transition: border-color .15s, background .15s; }
+.seg label small { color: var(--muted); font-size: 12.5px; }
+.seg label b { font-weight: 600; }
+.seg input:checked + label { border-color: var(--orange); background: var(--orange-soft); box-shadow: inset 0 0 0 1px var(--orange); }
+.seg.meios input:checked + label { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 1px var(--blue); }
+.seg input:focus-visible + label { outline: 2px solid var(--blue); outline-offset: 2px; }
+.seg label.disabled { opacity: .45; cursor: not-allowed; }
+select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; width: 100%; }
+select:focus-visible, button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1 1 160px; min-width: 0; }
+.resumo { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.resumo .v { font-family: var(--f-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.resumo small { color: var(--muted); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+button { font: inherit; cursor: pointer; border-radius: 10px; padding: 11px 18px; border: 1px solid transparent; font-weight: 600; }
+.btn-primary { background: var(--ink); color: var(--bg); }
+.btn-primary:hover { filter: brightness(1.15); }
+.btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+.btn-ghost:hover { background: var(--surface-2); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); cursor: pointer; user-select: none; }
+.toggle input { width: 16px; height: 16px; accent-color: var(--orange); }
+
+.code { font-family: var(--f-mono); font-size: 13px; background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.55; }
+.code .k { color: #F08A5D; } .code .c { color: var(--code-dim); } .code .b { color: #8DB8E0; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); transition: opacity .25s, border-color .25s, background .25s; }
+.step.pending { opacity: .38; }
+.step.current { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.step.failed { border-color: var(--bad); background: var(--bad-soft); }
+.step .n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; background: var(--surface-2); color: var(--ink); font-variant-numeric: tabular-nums; }
+.step.done .n { background: var(--ink); color: var(--bg); }
+.step.failed .n { background: var(--bad); color: var(--bg); }
+.step .body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.step .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.step .name { font-weight: 600; }
+.step .call { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.step .who { font-size: 12.5px; color: var(--muted); }
+.step .who b { color: var(--ink-2); font-weight: 600; }
+.step .out { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.tag.fixo { background: var(--surface-2); color: var(--muted); }
+.tag.tm { background: var(--orange-soft); color: var(--orange); }
+.tag.br { background: var(--blue-soft); color: var(--blue); }
+.tag.fm { background: var(--orange); color: var(--bg); }
+.tag.hook-default { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+
+.empty { color: var(--muted); font-size: 14px; border: 1px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; }
+
+.receipt { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.receipt .rh { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface-2); flex-wrap: wrap; }
+.receipt .rh b { font-family: var(--f-display); font-size: 17px; }
+.receipt .rh code { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.receipt dl { margin: 0; padding: 12px 16px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; }
+.receipt dt { color: var(--muted); font-size: 13.5px; }
+.receipt dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.receipt .mono { font-family: var(--f-mono); font-size: 12.5px; }
+.status { font-size: 12px; font-weight: 600; letter-spacing: 1px; border-radius: 999px; padding: 3px 10px; }
+.status.APROVADO { background: var(--good-soft); color: var(--good); }
+.status.PENDENTE { background: var(--warn-soft); color: var(--warn); }
+.status.RECUSADO { background: var(--bad-soft); color: var(--bad); }
+.alert { border-radius: 10px; padding: 12px 14px; font-size: 14px; display: flex; flex-direction: column; gap: 8px; }
+.alert.bad { background: var(--bad-soft); color: var(--ink); border: 1px solid var(--bad); }
+.alert.info { background: var(--blue-soft); color: var(--ink); border: 1px solid var(--blue); }
+.alert b { font-weight: 600; }
+
+.bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .bottom { grid-template-columns: minmax(0, 1fr); } }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.matrix td, .matrix th { text-align: center; }
+.matrix th:first-child, .matrix td:first-child { text-align: left; }
+.matrix td.cell { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.matrix td.cell.on { background: var(--orange-soft); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 2px var(--orange); }
+.matrix .new { color: var(--blue); }
+.counts { display: flex; gap: 12px; flex-wrap: wrap; }
+.count { flex: 1 1 140px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.count .big { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.count.with .big { color: var(--blue); }
+.count.without .big { color: var(--orange); }
+.count small { color: var(--muted); font-size: 13px; }
+.note { font-size: 13.5px; color: var(--muted); margin: 0; }
+footer { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>FitPay</h1><span>Protótipo · Kit G</span></div>
+    <p>Cobre um aluno e veja, ao lado, o que <code>processar()</code> faz por dentro: Template Method conduz, Bridge cobra, Factory Method emite o comprovante.</p>
+  </header>
+
+  <div class="grid">
+    <!-- Balcão -->
+    <section class="panel" aria-labelledby="t-balcao">
+      <div class="panel-head"><h2 id="t-balcao">Nova cobrança</h2><span class="eyebrow">Balcão da recepção</span></div>
+
+      <fieldset>
+        <legend>Aluno</legend>
+        <select id="aluno"></select>
+        <p class="note" id="aluno-info"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>O que cobrar · tipo de cobrança</legend>
+        <div class="seg" id="tipos"></div>
+      </fieldset>
+
+      <div class="row" id="extra"></div>
+
+      <fieldset>
+        <legend>Como cobrar · meio de pagamento</legend>
+        <div class="seg meios" id="meios"></div>
+      </fieldset>
+
+      <div class="row" id="extra-meio"></div>
+
+      <div class="resumo">
+        <div><small>Valor estimado</small><div class="v" id="estimado">R$ 0,00</div></div>
+        <small id="estimado-nota"></small>
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" id="cobrar">Cobrar</button>
+        <button class="btn-ghost" id="proximo" hidden>Próximo passo</button>
+        <label class="toggle"><input type="checkbox" id="passo">Passo a passo</label>
+      </div>
+      <div id="aviso"></div>
+    </section>
+
+    <!-- Por dentro -->
+    <section class="panel" aria-labelledby="t-dentro">
+      <div class="panel-head"><h2 id="t-dentro">Por dentro de <code>processar()</code></h2><span class="eyebrow" id="trace-status">Aguardando cobrança</span></div>
+      <div class="code" id="montagem" aria-label="Como o serviço monta a cobrança"><span class="c">// ServicoCobranca monta a combinação tipo × meio (Bridge)</span>
+<span class="c">// e chama o Template Method. Clique em Cobrar.</span></div>
+      <ol class="steps" id="steps"></ol>
+      <div id="resultado"></div>
+    </section>
+  </div>
+
+  <div class="bottom">
+    <section class="panel" aria-labelledby="t-matriz">
+      <div class="panel-head"><h2 id="t-matriz">Matriz do Bridge</h2><span class="eyebrow">Tipos × meios</span></div>
+      <div class="scroll"><table class="matrix" id="matriz"></table></div>
+      <div class="counts">
+        <div class="count with"><span class="big" id="c-com">6</span><small>classes com Bridge</small></div>
+        <div class="count without"><span class="big" id="c-sem">9</span><small>classes sem Bridge: uma por célula da tabela</small></div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="debito">Incluir débito automático (um ConcreteImplementor novo)</label>
+      <p class="note">Ligar o débito automático acrescenta uma classe, <code>PagamentoDebitoAutomatico</code>, e nenhuma cobrança muda. Sem o Bridge seriam três classes novas.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="t-livro">
+      <div class="panel-head"><h2 id="t-livro">Livro-caixa</h2><span class="eyebrow">Passo 6, sempre executado</span></div>
+      <div class="scroll"><table id="livro">
+        <thead><tr><th>Transação</th><th>Aluno</th><th>Cobrança</th><th>Meio</th><th class="num">Valor</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="note" id="livro-vazio">Nenhum lançamento ainda. Como <code>processar()</code> é <code>final</code>, toda cobrança que passa da validação cai aqui.</p>
+    </section>
+  </div>
+
+  <footer>Protótipo acadêmico. Alunos, preços e regras são fictícios; nenhum pagamento é feito. As classes deste protótipo seguem o relatório do Kit G.</footer>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   DOMÍNIO: mesmas classes do relatório, em JavaScript
+   ============================================================ */
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const DATA = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const round2 = v => Math.round(v * 100) / 100;
+let seq = 1040;
+
+class Plano { constructor(nome, valorMensal, valorAnual) { this.nome = nome; this.valorMensal = valorMensal; this.valorAnual = valorAnual; } }
+class Aluno {
+  constructor(nome, matricula, plano, opts) {
+    this.nome = nome; this.matricula = matricula; this.plano = plano;
+    this.convenio = !!opts.convenio; this.diaVencimento = opts.dia; this.bloqueado = !!opts.bloqueado; this.formaPreferida = opts.forma;
+  }
+  temConvenioEmpresa() { return this.convenio; }
+  estaBloqueado() { return this.bloqueado; }
+}
+class Transacao {
+  static nova(aluno, valor, parcelas, vencimento) { const t = new Transacao(); t.id = 'TX-' + (++seq); t.aluno = aluno; t.valor = round2(valor); t.parcelas = parcelas; t.vencimento = vencimento; return t; }
+}
+class ResultadoPagamento {
+  constructor(status, idExterno, detalhe) { this.status = status; this.idExterno = idExterno; this.detalhe = detalhe; }
+  static aprovado(id) { return new ResultadoPagamento('APROVADO', id, 'Captura aprovada'); }
+  static pendente(id, detalhe) { return new ResultadoPagamento('PENDENTE', id, detalhe); }
+  static recusado(motivo) { return new ResultadoPagamento('RECUSADO', null, motivo); }
+}
+class CobrancaNaoPermitidaException extends Error {}
+
+/* ---------- Bridge: Implementor e ConcreteImplementors ---------- */
+class MeioPagamento { executar(t) { throw new Error('abstrato'); } estornar(id) {} aceitaParcelamento() { return false; } }
+class PagamentoPix extends MeioPagamento {
+  get rotulo() { return 'Pix'; }
+  executar(t) {
+    const txid = 'fp' + t.id.slice(3) + 'x7k2';
+    const copiaECola = '00020126580014br.gov.bcb.pix0136fitpay-' + txid + '5204000053039865406' + t.valor.toFixed(2);
+    return ResultadoPagamento.pendente(txid, 'QR Code gerado no PSP; expira em 30 min. Copia e cola: ' + copiaECola.slice(0, 44) + '…');
+  }
+}
+class PagamentoCartao extends MeioPagamento {
+  constructor(simulaRecusa) { super(); this.simulaRecusa = simulaRecusa; }
+  get rotulo() { return 'Cartão'; }
+  executar(t) {
+    if (this.simulaRecusa) return ResultadoPagamento.recusado('Adquirente recusou: saldo insuficiente');
+    return ResultadoPagamento.aprovado('NSU ' + (480000 + seq));
+  }
+  aceitaParcelamento() { return true; }
+}
+class PagamentoBoleto extends MeioPagamento {
+  get rotulo() { return 'Boleto'; }
+  executar(t) {
+    const nossoNumero = '2026' + String(seq).padStart(8, '0');
+    return ResultadoPagamento.pendente(nossoNumero, 'Boleto registrado no banco. Linha digitável: 34191.09008 ' + nossoNumero.slice(0, 5) + '.' + nossoNumero.slice(5) + ' …');
+  }
+}
+class PagamentoDebitoAutomatico extends MeioPagamento {
+  get rotulo() { return 'Débito automático'; }
+  executar(t) { return ResultadoPagamento.pendente('DA' + seq, 'Débito agendado na conta do aluno para ' + DATA(t.vencimento)); }
+}
+
+/* ---------- Factory Method: Product e ConcreteProducts ---------- */
+class Comprovante { constructor(t, r) { this.transacao = t; this.resultado = r; } numero() { return this.transacao.id; } status() { return this.resultado.status; } }
+class ReciboMensalidade extends Comprovante {
+  constructor(t, r, competencia, proximo) { super(t, r); this.competencia = competencia; this.proximo = proximo; }
+  get titulo() { return 'Recibo de mensalidade'; }
+  linhas() { return [['Competência', MES[this.competencia.m] + '/' + this.competencia.y], ['Valor', BRL.format(this.transacao.valor)], ['Vencimento', DATA(this.transacao.vencimento)], ['Próximo vencimento', DATA(this.proximo)]]; }
+}
+class ReciboAvulso extends Comprovante {
+  constructor(t, r, item) { super(t, r); this.item = item; }
+  get titulo() { return 'Recibo avulso'; }
+  linhas() { return [['Item', this.item.nome], ['Valor', BRL.format(this.transacao.valor)], ['Vencimento', DATA(this.transacao.vencimento)]]; }
+}
+class ExtratoParcelamento extends Comprovante {
+  constructor(t, r, parcelas) { super(t, r); this.parcelas = parcelas; }
+  get titulo() { return 'Extrato do plano anual'; }
+  linhas() {
+    const p = this.parcelas, v = this.transacao.valor;
+    return [['Valor total', BRL.format(v)], ['Parcelamento', p === 1 ? 'À vista (10% de desconto aplicado)' : p + 'x de ' + BRL.format(round2(v / p))], ['1º vencimento', DATA(this.transacao.vencimento)]];
+  }
+}
+
+/* ---------- Template Method: AbstractClass ---------- */
+class Cobranca {
+  constructor(aluno, meio, livroCaixa, notificador) {
+    if (new.target === Cobranca) throw new Error('Cobranca é abstrata');
+    this.aluno = aluno; this.meio = meio; this.livroCaixa = livroCaixa; this.notificador = notificador;
+  }
+  /* Template Method: a ordem é fixa. (No Java, é declarado final.) */
+  processar(trace) {
+    trace.step(1, () => { this.validarAluno(); return 'Aluno liberado para cobrança'; }, 'validarAluno');
+    let valor;
+    trace.step(2, () => { valor = this.calcularValor(); return 'Valor bruto: ' + BRL.format(valor); }, 'calcularValor');
+    trace.step(3, () => { const antes = valor; valor = this.aplicarDescontos(valor); return antes === valor ? 'Sem desconto: ' + BRL.format(valor) : BRL.format(antes) + ' → ' + BRL.format(valor) + ' (' + this.motivoDesconto() + ')'; }, 'aplicarDescontos');
+    let t;
+    trace.step(4, () => { t = Transacao.nova(this.aluno, valor, this.parcelas(), this.vencimento()); return t.id + ' · ' + (t.parcelas > 1 ? t.parcelas + ' parcelas' : 'parcela única') + ' · vence ' + DATA(t.vencimento); }, ['parcelas', 'vencimento']);
+    let r;
+    trace.step(5, () => { r = this.meio.executar(t); return r.status + ' · ' + r.detalhe; }, null, this.meio.constructor.name);
+    trace.step(6, () => { this.livroCaixa.registrar(t, r, this); return 'Lançamento ' + t.id + ' registrado'; }, null);
+    let c;
+    trace.step(7, () => { c = this.criarComprovante(t, r); return 'new ' + c.constructor.name + '(…)'; }, 'criarComprovante');
+    trace.step(8, () => { if (this.deveNotificar(r)) { this.notificador.enviar(this.aluno, c); return 'Comprovante enviado para ' + this.aluno.nome.split(' ')[0]; } return 'Notificação dispensada'; }, 'deveNotificar');
+    return c;
+  }
+  validarAluno() { if (this.aluno.estaBloqueado()) throw new CobrancaNaoPermitidaException('Matrícula ' + this.aluno.matricula + ' bloqueada por inadimplência'); }
+  /* operações primitivas (abstratas) */
+  calcularValor() { throw new Error('abstrato'); }
+  criarComprovante(t, r) { throw new Error('abstrato'); }
+  /* ganchos (hooks) */
+  aplicarDescontos(v) { return v; }
+  motivoDesconto() { return ''; }
+  parcelas() { return 1; }
+  vencimento() { const d = hoje(); d.setDate(d.getDate() + 3); return d; }
+  deveNotificar(r) { return true; }
+}
+
+/* ---------- ConcreteClasses (e ConcreteCreators) ---------- */
+class CobrancaMensalidade extends Cobranca {
+  constructor(aluno, meio, livro, notif, competencia) { super(aluno, meio, livro, notif); this.competencia = competencia; }
+  get rotulo() { return 'Mensalidade'; }
+  calcularValor() { return this.aluno.plano.valorMensal; }
+  aplicarDescontos(v) { return this.aluno.temConvenioEmpresa() ? round2(v * 0.85) : v; }
+  motivoDesconto() { return 'convênio empresarial, 15%'; }
+  vencimento() { return new Date(this.competencia.y, this.competencia.m, this.aluno.diaVencimento); }
+  criarComprovante(t, r) { const p = this.vencimento(); p.setMonth(p.getMonth() + 1); return new ReciboMensalidade(t, r, this.competencia, p); }
+}
+class CobrancaAvulsa extends Cobranca {
+  constructor(aluno, meio, livro, notif, item) { super(aluno, meio, livro, notif); this.item = item; }
+  get rotulo() { return 'Avulsa: ' + this.item.nome.toLowerCase(); }
+  calcularValor() { return this.item.preco; }
+  vencimento() { return hoje(); }
+  criarComprovante(t, r) { return new ReciboAvulso(t, r, this.item); }
+}
+class CobrancaPlanoAnual extends Cobranca {
+  constructor(aluno, meio, livro, notif, parcelas) {
+    super(aluno, meio, livro, notif);
+    if (parcelas > 1 && !meio.aceitaParcelamento()) throw new IllegalArgumentException('Parcelamento só é aceito no cartão');
+    this._parcelas = parcelas;
+  }
+  get rotulo() { return 'Plano anual'; }
+  calcularValor() { return this.aluno.plano.valorAnual; }
+  aplicarDescontos(v) { return this._parcelas === 1 ? round2(v * 0.90) : v; }
+  motivoDesconto() { return 'à vista, 10%'; }
+  parcelas() { return this._parcelas; }
+  criarComprovante(t, r) { return new ExtratoParcelamento(t, r, this._parcelas); }
+}
+class IllegalArgumentException extends Error {}
+
+/* ---------- colaboradores injetados (sem Singleton) ---------- */
+class LivroCaixa { constructor(onChange) { this.lancamentos = []; this.onChange = onChange; } registrar(t, r, cobranca) { this.lancamentos.unshift({ t, r, cobranca }); } }
+class Notificador { constructor() { this.enviados = []; } enviar(aluno, c) { this.enviados.push({ aluno, c }); } }
+
+function hoje() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+
+/* ============================================================
+   DADOS DE EXEMPLO (fictícios)
+   ============================================================ */
+const BLACK = new Plano('Black', 149.90, 1499.00);
+const BASICO = new Plano('Básico', 99.90, 999.00);
+const ALUNOS = [
+  new Aluno('Ana Souza', '2024-0187', BLACK, { convenio: true, dia: 10, forma: 'cartao' }),
+  new Aluno('Bruno Lima', '2025-0342', BASICO, { convenio: false, dia: 5, forma: 'pix' }),
+  new Aluno('Carla Mendes', '2023-0099', BLACK, { convenio: false, dia: 15, forma: 'boleto', bloqueado: true }),
+];
+const ITENS = [ { id: 'diaria', nome: 'Diária', preco: 35.00 }, { id: 'personal', nome: 'Aula com personal', preco: 90.00 }, { id: 'matricula', nome: 'Taxa de matrícula', preco: 60.00 } ];
+const TIPOS = [
+  { id: 'mensalidade', nome: 'Mensalidade', classe: 'CobrancaMensalidade', dica: 'Recorrente' },
+  { id: 'avulsa', nome: 'Avulsa', classe: 'CobrancaAvulsa', dica: 'Diária, personal…' },
+  { id: 'anual', nome: 'Plano anual', classe: 'CobrancaPlanoAnual', dica: 'À vista ou parcelado' },
+];
+const MEIOS_BASE = [
+  { id: 'pix', nome: 'Pix', classe: 'PagamentoPix', dica: 'PSP · fica pendente' },
+  { id: 'cartao', nome: 'Cartão', classe: 'PagamentoCartao', dica: 'Adquirente · na hora' },
+  { id: 'boleto', nome: 'Boleto', classe: 'PagamentoBoleto', dica: 'Banco · fica pendente' },
+];
+const MEIO_DEBITO = { id: 'debito', nome: 'Débito auto.', classe: 'PagamentoDebitoAutomatico', dica: 'Novo implementador' };
+const COMPETENCIA = (() => { const d = hoje(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+
+/* metadados de cada passo do template, para a tela */
+const PASSOS = {
+  1: { nome: 'Validar aluno', tag: ['fixo', 'Fixo'], call: 'validarAluno()' },
+  2: { nome: 'Calcular valor', tag: ['tm', 'Abstrato'], call: 'calcularValor()' },
+  3: { nome: 'Aplicar descontos', tag: ['tm', 'Gancho'], call: 'aplicarDescontos(v)' },
+  4: { nome: 'Montar transação', tag: ['tm', 'Ganchos'], call: 'Transacao.nova(aluno, v, parcelas(), vencimento())' },
+  5: { nome: 'Pagar no meio escolhido', tag: ['br', 'Bridge'], call: 'meio.executar(t)' },
+  6: { nome: 'Registrar no livro-caixa', tag: ['fixo', 'Fixo'], call: 'livroCaixa.registrar(t, r)' },
+  7: { nome: 'Gerar comprovante', tag: ['fm', 'Factory Method'], call: 'criarComprovante(t, r)' },
+  8: { nome: 'Notificar o aluno', tag: ['tm', 'Gancho'], call: 'if (deveNotificar(r)) notificador.enviar(aluno, c)' },
+};
+
+/* Descobre, por reflexão, quem implementou o passo: a subclasse ou o padrão de Cobranca */
+function quemImplementa(obj, metodos) {
+  if (!metodos) return null;
+  const lista = Array.isArray(metodos) ? metodos : [metodos];
+  return lista.map(m => {
+    const dono = Object.getPrototypeOf(obj).hasOwnProperty(m) ? obj.constructor.name : 'Cobranca';
+    return { m, dono, padrao: dono === 'Cobranca' };
+  });
+}
+
+/* ============================================================
+   TELA
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const state = { aluno: 0, tipo: 'mensalidade', item: 'diaria', parcelas: 1, meio: 'cartao', recusa: false, debito: false, passo: false };
+const livro = new LivroCaixa();
+const notificador = new Notificador();
+let replay = null;
+
+function meios() { return state.debito ? [...MEIOS_BASE, MEIO_DEBITO] : MEIOS_BASE; }
+
+function radioGroup(container, name, items, current) {
+  container.innerHTML = items.map(it => `<input type="radio" name="${name}" id="${name}-${it.id}" value="${it.id}" ${it.id === current ? 'checked' : ''}><label for="${name}-${it.id}"><b>${it.nome}</b><small>${it.dica}</small></label>`).join('');
+}
+
+function renderForm() {
+  $('aluno').innerHTML = ALUNOS.map((a, i) => `<option value="${i}" ${i === state.aluno ? 'selected' : ''}>${a.nome} · plano ${a.plano.nome}${a.bloqueado ? ' · bloqueado' : ''}</option>`).join('');
+  radioGroup($('tipos'), 'tipo', TIPOS, state.tipo);
+  radioGroup($('meios'), 'meio', meios(), state.meio);
+  renderExtra(); renderInfo(); renderEstimado(); renderMatriz();
+}
+
+function renderInfo() {
+  const a = ALUNOS[state.aluno];
+  const partes = ['Matrícula ' + a.matricula, 'vence todo dia ' + a.diaVencimento];
+  if (a.convenio) partes.push('convênio empresarial');
+  if (a.bloqueado) partes.push('matrícula bloqueada');
+  $('aluno-info').textContent = partes.join(' · ');
+}
+
+function renderExtra() {
+  const ex = $('extra'), em = $('extra-meio');
+  if (state.tipo === 'avulsa') {
+    ex.innerHTML = `<fieldset><legend>Item avulso</legend><select id="item">${ITENS.map(i => `<option value="${i.id}" ${i.id === state.item ? 'selected' : ''}>${i.nome} · ${BRL.format(i.preco)}</option>`).join('')}</select></fieldset>`;
+    $('item').onchange = e => { state.item = e.target.value; renderEstimado(); };
+  } else if (state.tipo === 'anual') {
+    const ops = [1, 2, 3, 6, 10, 12];
+    ex.innerHTML = `<fieldset><legend>Parcelas</legend><select id="parcelas">${ops.map(p => `<option value="${p}" ${p === state.parcelas ? 'selected' : ''}>${p === 1 ? 'À vista (10% de desconto)' : p + 'x no cartão'}</option>`).join('')}</select></fieldset>`;
+    $('parcelas').onchange = e => { state.parcelas = +e.target.value; renderEstimado(); };
+  } else {
+    ex.innerHTML = `<p class="note">Competência ${MES[COMPETENCIA.m]}/${COMPETENCIA.y}. O vencimento vem do cadastro do aluno.</p>`;
+  }
+  em.innerHTML = state.meio === 'cartao'
+    ? `<label class="toggle"><input type="checkbox" id="recusa" ${state.recusa ? 'checked' : ''}>Simular cartão recusado pela adquirente</label>`
+    : '';
+  if ($('recusa')) $('recusa').onchange = e => { state.recusa = e.target.checked; };
+}
+
+function renderEstimado() {
+  const a = ALUNOS[state.aluno];
+  let v = 0, nota = '';
+  if (state.tipo === 'mensalidade') { v = a.plano.valorMensal; if (a.convenio) { v = round2(v * .85); nota = 'Com 15% de convênio'; } }
+  else if (state.tipo === 'avulsa') { v = ITENS.find(i => i.id === state.item).preco; }
+  else { v = a.plano.valorAnual; if (state.parcelas === 1) { v = round2(v * .9); nota = 'À vista, 10% de desconto'; } else nota = state.parcelas + 'x de ' + BRL.format(round2(v / state.parcelas)); }
+  $('estimado').textContent = BRL.format(v);
+  $('estimado-nota').textContent = nota;
+}
+
+function renderMatriz() {
+  const ms = meios();
+  const head = `<thead><tr><th>Tipo \\ Meio</th>${ms.map(m => `<th class="${m.id === 'debito' ? 'new' : ''}">${m.nome}</th>`).join('')}</tr></thead>`;
+  const body = TIPOS.map(t => `<tr><td><b>${t.nome}</b></td>${ms.map(m => `<td class="cell ${t.id === state.tipo && m.id === state.meio ? 'on' : ''}">${t.nome.replace(' anual', 'Anual')}${m.nome.split(' ')[0].replace('ã', 'a').replace('é', 'e')}</td>`).join('')}</tr>`).join('');
+  $('matriz').innerHTML = head + '<tbody>' + body + '</tbody>';
+  $('c-com').textContent = TIPOS.length + ms.length;
+  $('c-sem').textContent = TIPOS.length * ms.length;
+}
+
+function renderLivro() {
+  const tb = $('livro').querySelector('tbody');
+  tb.innerHTML = livro.lancamentos.map(({ t, r, cobranca }) => `<tr><td class="mono">${t.id}</td><td>${t.aluno.nome}</td><td>${cobranca.rotulo}</td><td>${cobranca.meio.rotulo}</td><td class="num">${BRL.format(t.valor)}</td><td><span class="status ${r.status}">${r.status}</span></td></tr>`).join('');
+  $('livro-vazio').hidden = livro.lancamentos.length > 0;
+}
+
+/* Monta a cobrança como o ServicoCobranca faria: combina qualquer tipo com qualquer meio */
+function criarMeio(id) {
+  switch (id) {
+    case 'pix': return new PagamentoPix();
+    case 'cartao': return new PagamentoCartao(state.recusa);
+    case 'boleto': return new PagamentoBoleto();
+    case 'debito': return new PagamentoDebitoAutomatico();
+  }
+}
+function criarCobranca(meio) {
+  const a = ALUNOS[state.aluno];
+  if (state.tipo === 'mensalidade') return new CobrancaMensalidade(a, meio, livro, notificador, COMPETENCIA);
+  if (state.tipo === 'avulsa') return new CobrancaAvulsa(a, meio, livro, notificador, ITENS.find(i => i.id === state.item));
+  return new CobrancaPlanoAnual(a, meio, livro, notificador, state.parcelas);
+}
+function codigoMontagem(meio) {
+  const tipo = TIPOS.find(t => t.id === state.tipo).classe;
+  const extra = state.tipo === 'mensalidade' ? `competencia /* ${MES[COMPETENCIA.m]}/${COMPETENCIA.y} */` : state.tipo === 'avulsa' ? `ItemAvulso.${state.item.toUpperCase()}` : `${state.parcelas} /* parcelas */`;
+  const primeiro = ALUNOS[state.aluno].nome.split(' ')[0].toLowerCase();
+  return `<span class="c">// ServicoCobranca: o Bridge monta a combinação em tempo de execução</span>
+<span class="b">MeioPagamento</span> meio = <span class="k">new</span> <span class="b">${meio}</span>(…);
+<span class="b">Cobranca</span> cobranca = <span class="k">new</span> ${tipo}(${primeiro}, meio, …, ${extra});
+<span class="b">Comprovante</span> c = cobranca.processar();   <span class="c">// Template Method</span>`;
+}
+
+/* Trace: executa o passo de verdade e registra o que aconteceu */
+class Trace {
+  constructor(cobranca) { this.cobranca = cobranca; this.eventos = []; }
+  step(n, fn, metodos, donoFixo) {
+    const ev = { n, quem: donoFixo ? [{ m: null, dono: donoFixo, padrao: false }] : quemImplementa(this.cobranca, metodos) };
+    try { ev.out = fn(); ev.ok = true; this.eventos.push(ev); }
+    catch (e) { ev.out = e.message; ev.ok = false; ev.erro = e.constructor.name; this.eventos.push(ev); throw e; }
+  }
+}
+
+function stepHTML(ev, estado) {
+  const p = PASSOS[ev.n];
+  let quem = '';
+  if (ev.n === 1 || ev.n === 6) quem = 'Implementado em <b>Cobranca</b>, igual para todo tipo';
+  else if (ev.quem) {
+    quem = ev.quem.map(q => q.m === null
+      ? `Executado por <b>${q.dono}</b>, sem a cobrança saber qual meio é`
+      : q.padrao ? `<code>${q.m}()</code>: padrão de <b>Cobranca</b> (não sobrescrito)` : `<code>${q.m}()</code>: sobrescrito em <b>${q.dono}</b>`).join(' · ');
+  }
+  const tagExtra = ev.quem && ev.quem.length === 1 && ev.quem[0].padrao && p.tag[1] === 'Gancho' ? '<span class="tag hook-default">usou o padrão</span>' : '';
+  return `<li class="step ${estado}${ev.ok === false ? ' failed' : ''}">
+    <span class="n">${ev.n}</span>
+    <div class="body">
+      <div class="top"><span class="name">${p.nome}</span><span class="tag ${p.tag[0]}">${p.tag[1]}</span>${tagExtra}</div>
+      <span class="call">${p.call}</span>
+      ${estado === 'pending' ? '' : `<span class="who">${quem}</span><span class="out">${ev.ok === false ? '<b>' + ev.erro + ':</b> ' : ''}${ev.out}</span>`}
+    </div></li>`;
+}
+
+function renderSteps(eventos, mostrados) {
+  const html = [];
+  for (let n = 1; n <= 8; n++) {
+    const ev = eventos.find(e => e.n === n);
+    if (ev && n <= mostrados) html.push(stepHTML(ev, n === mostrados ? 'done current' : 'done'));
+    else html.push(stepHTML({ n }, 'pending'));
+  }
+  $('steps').innerHTML = html.join('');
+}
+
+function renderResultado(r) {
+  const out = $('resultado');
+  if (!r) { out.innerHTML = ''; return; }
+  if (r.tipo === 'erro-montagem') {
+    out.innerHTML = `<div class="alert bad"><span><b>${r.erro}:</b> ${r.msg}</span><span>O construtor de <code>CobrancaPlanoAnual</code> perguntou ao meio <code>aceitaParcelamento()</code> e recebeu <code>false</code>. A cobrança nem chegou a ser criada.</span></div>`;
+    return;
+  }
+  if (r.tipo === 'erro-validacao') {
+    out.innerHTML = `<div class="alert bad"><span><b>Cobrança interrompida no passo 1.</b> ${r.msg}.</span><span>Nenhum pagamento foi tentado e nada entrou no livro-caixa.</span></div>`;
+    return;
+  }
+  const c = r.comprovante, st = c.status();
+  let extra = '';
+  const parcelado = r.cobranca.parcelas() > 1;
+  if (st === 'RECUSADO') extra = parcelado
+    ? `<div class="alert info"><span>O cartão foi recusado. Pix e boleto não parcelam (<code>aceitaParcelamento()</code> devolve <code>false</code>), então a mesma cobrança parcelada só pode ir para outro cartão. A ponte é só uma referência: basta trocar o meio.</span><div><button class="btn-ghost" id="refazer">Tentar com outro cartão</button></div></div>`
+    : `<div class="alert info"><span>O cartão foi recusado. Como o meio é só uma referência (a ponte), dá para refazer a <b>mesma</b> cobrança com outro meio, sem mudar nenhuma classe de cobrança.</span><div><button class="btn-ghost" id="refazer">Refazer com Pix</button></div></div>`;
+  out.innerHTML = `<div class="receipt">
+      <div class="rh"><div><b>${c.titulo}</b><br><code>${c.constructor.name} · criado por ${r.cobranca.constructor.name}.criarComprovante()</code></div><span class="status ${st}">${st}</span></div>
+      <dl>
+        <dt>Comprovante</dt><dd class="mono">${c.numero()}</dd>
+        <dt>Aluno</dt><dd>${c.transacao.aluno.nome}</dd>
+        ${c.linhas().map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}
+        <dt>Meio</dt><dd>${r.cobranca.meio.rotulo} · ${c.resultado.detalhe}</dd>
+      </dl></div>${extra}`;
+  if ($('refazer')) $('refazer').onclick = () => { if (!parcelado) state.meio = 'pix'; state.recusa = false; renderForm(); cobrar(false); };
+}
+
+function setBusy(busy) { $('cobrar').disabled = busy; }
+
+function cobrar(instantaneo) {
+  if (replay) { clearTimeout(replay.timer); replay = null; }
+  $('proximo').hidden = true;
+  $('aviso').innerHTML = '';
+  const meioDef = meios().find(m => m.id === state.meio);
+  $('montagem').innerHTML = codigoMontagem(meioDef.classe);
+  renderResultado(null);
+  let cobranca;
+  try { cobranca = criarCobranca(criarMeio(state.meio)); }
+  catch (e) {
+    renderSteps([], 0);
+    $('trace-status').textContent = 'Falhou ao montar';
+    renderResultado({ tipo: 'erro-montagem', erro: e.constructor.name, msg: e.message });
+    return;
+  }
+  const trace = new Trace(cobranca);
+  let comprovante = null, falha = null;
+  try { comprovante = cobranca.processar(trace); }
+  catch (e) { falha = e; }
+  const total = trace.eventos.length;
+  const final = () => {
+    renderLivro();
+    $('trace-status').textContent = falha ? 'Interrompido no passo ' + total : 'Concluído · 8 de 8 passos';
+    renderResultado(falha ? { tipo: 'erro-validacao', msg: falha.message } : { tipo: 'ok', comprovante, cobranca });
+    setBusy(false); $('proximo').hidden = true;
+  };
+  setBusy(true);
+  replay = { mostrados: 0, total, eventos: trace.eventos, final };
+  const avancar = () => {
+    replay.mostrados++;
+    renderSteps(replay.eventos, replay.mostrados);
+    $('trace-status').textContent = 'Passo ' + replay.mostrados + ' de 8';
+    if (replay.mostrados >= replay.total) { replay.final(); replay = null; return false; }
+    return true;
+  };
+  if (state.passo) { avancar(); if (replay) { $('proximo').hidden = false; $('proximo').onclick = () => { avancar(); }; } }
+  else {
+    const reduz = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduz || instantaneo === true) { while (replay && avancar()); }
+    else { const tick = () => { if (replay && avancar()) replay.timer = setTimeout(tick, 380); }; tick(); }
+  }
+}
+
+/* eventos */
+$('aluno').onchange = e => { state.aluno = +e.target.value; renderInfo(); renderEstimado(); };
+$('tipos').onchange = e => { state.tipo = e.target.value; renderExtra(); renderEstimado(); renderMatriz(); };
+$('meios').onchange = e => { state.meio = e.target.value; renderExtra(); renderMatriz(); };
+$('passo').onchange = e => { state.passo = e.target.checked; };
+$('debito').onchange = e => { state.debito = e.target.checked; if (!state.debito && state.meio === 'debito') state.meio = 'cartao'; radioGroup($('meios'), 'meio', meios(), state.meio); renderExtra(); renderMatriz(); };
+$('cobrar').onclick = () => cobrar(false);
+
+/* estado inicial: Ana, mensalidade no cartão, já processada como exemplo */
+renderForm();
+renderSteps([], 0);
+renderLivro();
+cobrar(true);
+</script>
+
+</html>
