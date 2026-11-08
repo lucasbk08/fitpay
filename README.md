@@ -39,7 +39,7 @@ javac -encoding UTF-8 -d out (Get-ChildItem -Recurse src/main/java -Filter *.jav
 java -cp out br.com.fitpay.app.FitPayApp
 ```
 
-Também há um protótipo visual em [`docs/prototipo-web.html`](docs/prototipo-web.html): abra no navegador para ver os 8 passos de `processar()` acontecendo, um de cada vez. Ele repete em JavaScript a mesma lógica destas classes Java e serve para a apresentação.
+Também há um protótipo visual em [`docs/prototipo-web.html`](docs/prototipo-web.html): abra no navegador e use o FitPay como um app de cobrança (nova cobrança em etapas, Pix com QR Code, cartão, boleto, extrato e agendador). O botão **Por dentro** abre um painel com os 8 passos de `processar()`, um de cada vez. A tela repete em JavaScript a mesma lógica destas classes Java.
 
 ## Onde cada padrão está no código
 

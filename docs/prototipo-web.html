@@ -7,251 +7,350 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
-/* Layout: balcão de cobrança à esquerda, "por dentro de processar()" à direita; matriz do Bridge e livro-caixa embaixo. Mesma identidade dos slides do Kit G. */
+/* Layout: app de cobrança. Barra lateral (desktop) ou barra inferior (celular), conteúdo no centro,
+   fluxo de nova cobrança em folha modal e painel "Por dentro" à direita para a apresentação. */
 :root {
-  --bg: #F3F1EC;
+  --bg: #F2F0EB;
   --surface: #FDFCF9;
   --surface-2: #ECE8DF;
+  --side: #14222F;
+  --side-ink: #E8ECEF;
+  --side-dim: #8FA1B3;
   --ink: #14222F;
   --ink-2: #3E4A56;
   --muted: #5E6B78;
-  --line: #D9D5CC;
-  --orange: #C2531F;
-  --orange-soft: #FBEDE5;
+  --line: #DCD8CF;
+  --brand: #C2531F;
+  --brand-ink: #FFF7F2;
+  --brand-soft: #FBEDE5;
   --blue: #2C5F8F;
   --blue-soft: #E6EEF6;
-  --good: #2E7D4F;
-  --good-soft: #E3F1E8;
-  --warn: #9A6400;
-  --warn-soft: #FBF0DA;
+  --good: #23784A;
+  --good-soft: #E1F2E7;
+  --warn: #8F5E00;
+  --warn-soft: #FAEFD7;
   --bad: #B3261E;
-  --bad-soft: #FBE6E4;
+  --bad-soft: #FBE5E3;
   --code-bg: #14222F;
   --code-ink: #E8ECEF;
   --code-dim: #8FA1B3;
+  --shadow: 0 1px 2px rgba(20,34,47,.06), 0 8px 24px rgba(20,34,47,.08);
   --f-display: 'Space Grotesk', 'Segoe UI', Arial, sans-serif;
   --f-body: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
-  --f-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  --f-mono: 'JetBrains Mono', Consolas, 'Courier New', monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0F1820; --surface: #16222D; --surface-2: #1D2B38; --ink: #ECEFF2; --ink-2: #C3CCD5; --muted: #8E9CAA; --line: #2B3B4A;
-    --orange: #F08A5D; --orange-soft: #3A2419; --blue: #8DB8E0; --blue-soft: #1B2E42;
-    --good: #6FCF97; --good-soft: #17301F; --warn: #F2C063; --warn-soft: #362A12; --bad: #F28B82; --bad-soft: #3A1C1A;
-    --code-bg: #0A1117; --code-ink: #E8ECEF; --code-dim: #7D8E9F; color-scheme: dark;
+    --bg: #0E161E; --surface: #15212B; --surface-2: #1C2A36; --side: #0A1118; --side-ink: #E8ECEF; --side-dim: #7D8E9F;
+    --ink: #ECEFF2; --ink-2: #C3CCD5; --muted: #8E9CAA; --line: #283846;
+    --brand: #F08A5D; --brand-ink: #1A0E08; --brand-soft: #3A2419; --blue: #8DB8E0; --blue-soft: #1B2E42;
+    --good: #6FCF97; --good-soft: #15301F; --warn: #F2C063; --warn-soft: #362A12; --bad: #F28B82; --bad-soft: #3A1C1A;
+    --code-bg: #0A1117; --code-ink: #E8ECEF; --code-dim: #7D8E9F; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+    color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0F1820; --surface: #16222D; --surface-2: #1D2B38; --ink: #ECEFF2; --ink-2: #C3CCD5; --muted: #8E9CAA; --line: #2B3B4A;
-  --orange: #F08A5D; --orange-soft: #3A2419; --blue: #8DB8E0; --blue-soft: #1B2E42;
-  --good: #6FCF97; --good-soft: #17301F; --warn: #F2C063; --warn-soft: #362A12; --bad: #F28B82; --bad-soft: #3A1C1A;
-  --code-bg: #0A1117; --code-ink: #E8ECEF; --code-dim: #7D8E9F; color-scheme: dark;
+  --bg: #0E161E; --surface: #15212B; --surface-2: #1C2A36; --side: #0A1118; --side-ink: #E8ECEF; --side-dim: #7D8E9F;
+  --ink: #ECEFF2; --ink-2: #C3CCD5; --muted: #8E9CAA; --line: #283846;
+  --brand: #F08A5D; --brand-ink: #1A0E08; --brand-soft: #3A2419; --blue: #8DB8E0; --blue-soft: #1B2E42;
+  --good: #6FCF97; --good-soft: #15301F; --warn: #F2C063; --warn-soft: #362A12; --bad: #F28B82; --bad-soft: #3A1C1A;
+  --code-bg: #0A1117; --code-ink: #E8ECEF; --code-dim: #7D8E9F; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
-.wrap { max-width: 1280px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
-.brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-.brand h1 { font-family: var(--f-display); font-size: 34px; font-weight: 700; margin: 0; letter-spacing: -0.5px; }
-.brand span { font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--orange); }
-header p { margin: 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
-.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
-@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.panel h2 { font-family: var(--f-display); font-size: 20px; font-weight: 700; margin: 0; }
-.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
-fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-legend { font-size: 12px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 8px; }
-.seg { display: flex; flex-wrap: wrap; gap: 8px; }
-.seg input { position: absolute; opacity: 0; pointer-events: none; }
-.seg label { cursor: pointer; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 2px; flex: 1 1 120px; min-width: 0; transition: border-color .15s, background .15s; }
-.seg label small { color: var(--muted); font-size: 12.5px; }
-.seg label b { font-weight: 600; }
-.seg input:checked + label { border-color: var(--orange); background: var(--orange-soft); box-shadow: inset 0 0 0 1px var(--orange); }
-.seg.meios input:checked + label { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 1px var(--blue); }
-.seg input:focus-visible + label { outline: 2px solid var(--blue); outline-offset: 2px; }
-.seg label.disabled { opacity: .45; cursor: not-allowed; }
-select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; width: 100%; }
-select:focus-visible, button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.row { display: flex; gap: 12px; flex-wrap: wrap; }
-.row > * { flex: 1 1 160px; min-width: 0; }
-.resumo { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
-.resumo .v { font-family: var(--f-display); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.resumo small { color: var(--muted); }
-.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-button { font: inherit; cursor: pointer; border-radius: 10px; padding: 11px 18px; border: 1px solid transparent; font-weight: 600; }
-.btn-primary { background: var(--ink); color: var(--bg); }
-.btn-primary:hover { filter: brightness(1.15); }
-.btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); }
+.num { font-variant-numeric: tabular-nums; }
+svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100%; }
+.side { background: var(--side); color: var(--side-ink); display: flex; flex-direction: column; gap: 28px; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+.logo { display: flex; align-items: center; gap: 10px; padding: 0 10px; }
+.logo-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 18px; }
+.logo b { font-family: var(--f-display); font-size: 22px; letter-spacing: -.3px; }
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav button { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; border: 0; background: transparent; color: var(--side-dim); text-align: left; font-weight: 500; }
+.nav button:hover { background: rgba(255,255,255,.06); color: var(--side-ink); }
+.nav button[aria-current="page"] { background: rgba(255,255,255,.1); color: var(--side-ink); }
+.side-foot { margin-top: auto; padding: 14px; border-radius: 12px; background: rgba(255,255,255,.06); display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.side-foot small { color: var(--side-dim); }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; padding-left: max(28px, env(safe-area-inset-left, 0px)); padding-right: max(28px, env(safe-area-inset-right, 0px)); flex-wrap: wrap; }
+.top h1 { font-family: var(--f-display); font-size: 26px; margin: 0; letter-spacing: -.3px; }
+.top .sub { color: var(--muted); font-size: 14px; }
+.top-actions { display: flex; align-items: center; gap: 12px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 13px; background: var(--surface-2); color: var(--ink-2); flex: none; }
+.view { padding-bottom: 48px; padding-left: max(28px, env(safe-area-inset-left, 0px)); padding-right: max(28px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; max-width: 1180px; width: 100%; }
+.tabbar { display: none; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; padding: 11px 18px; border: 1px solid transparent; font-weight: 600; white-space: nowrap; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-primary:hover { filter: brightness(1.06); }
+:root[data-theme="dark"] .btn-primary { color: var(--brand-ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-primary { color: var(--brand-ink); } }
+.btn-ghost { background: var(--surface); border-color: var(--line); }
 .btn-ghost:hover { background: var(--surface-2); }
-button:disabled { opacity: .45; cursor: not-allowed; }
-.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); cursor: pointer; user-select: none; }
-.toggle input { width: 16px; height: 16px; accent-color: var(--orange); }
+.btn-dark { background: var(--ink); color: var(--bg); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-block { width: 100%; padding: 14px 18px; font-size: 16px; }
 
-.code { font-family: var(--f-mono); font-size: 13px; background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 12px 14px; overflow-x: auto; white-space: pre; line-height: 1.55; }
-.code .k { color: #F08A5D; } .code .c { color: var(--code-dim); } .code .b { color: #8DB8E0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; min-width: 0; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.card-head h2 { font-family: var(--f-display); font-size: 18px; margin: 0; }
+.link { background: none; border: 0; color: var(--blue); font-weight: 600; padding: 0; }
 
-.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); transition: opacity .25s, border-color .25s, background .25s; }
-.step.pending { opacity: .38; }
-.step.current { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
-.step.failed { border-color: var(--bad); background: var(--bad-soft); }
-.step .n { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; background: var(--surface-2); color: var(--ink); font-variant-numeric: tabular-nums; }
-.step.done .n { background: var(--ink); color: var(--bg); }
-.step.failed .n { background: var(--bad); color: var(--bg); }
-.step .body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.step .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.step .name { font-weight: 600; }
-.step .call { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
-.step .who { font-size: 12.5px; color: var(--muted); }
-.step .who b { color: var(--ink-2); font-weight: 600; }
-.step .out { font-size: 13.5px; color: var(--ink); overflow-wrap: anywhere; }
-.tag { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+/* ---------- início ---------- */
+.hero { background: var(--side); color: var(--side-ink); border-radius: 20px; padding: 26px 28px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+.hero .label { font-size: 13px; color: var(--side-dim); display: flex; align-items: center; gap: 8px; }
+.hero .big { font-family: var(--f-display); font-size: 40px; font-weight: 700; letter-spacing: -.5px; line-height: 1.1; margin-top: 6px; }
+.hero .mid { font-family: var(--f-display); font-size: 26px; font-weight: 700; margin-top: 8px; }
+.hero .hint { font-size: 13px; color: var(--side-dim); margin-top: 4px; }
+.hero .k + .k { border-left: 1px solid rgba(255,255,255,.12); padding-left: 24px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.quick button { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; min-width: 0; }
+.quick button:hover { border-color: var(--ink-2); }
+.quick .qi { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); }
+.quick b { font-weight: 600; }
+.quick small { color: var(--muted); font-size: 13px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+
+/* ---------- listas de transações ---------- */
+.tx-list { display: flex; flex-direction: column; }
+.tx { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 6px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; width: 100%; border-radius: 0; }
+.tx:first-child { border-top: 0; }
+.tx:hover { background: var(--surface-2); border-radius: 10px; }
+.tx-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink-2); }
+.tx-main { min-width: 0; display: flex; flex-direction: column; }
+.tx-main b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-main small { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.tx-right b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pill { font-size: 11.5px; font-weight: 600; letter-spacing: .4px; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.pill.APROVADO { background: var(--good-soft); color: var(--good); }
+.pill.PENDENTE { background: var(--warn-soft); color: var(--warn); }
+.pill.RECUSADO { background: var(--bad-soft); color: var(--bad); }
+.empty { color: var(--muted); text-align: center; padding: 28px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-weight: 500; font-size: 14px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.day-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; padding: 6px 6px 4px; }
+
+/* ---------- alunos ---------- */
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.person { display: flex; flex-direction: column; gap: 12px; }
+.person-top { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.person-top div { min-width: 0; }
+.person-top b { display: block; font-weight: 600; }
+.person-top small { color: var(--muted); font-size: 13px; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 12px; font-weight: 600; border-radius: 6px; padding: 2px 8px; background: var(--surface-2); color: var(--ink-2); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.blue { background: var(--blue-soft); color: var(--blue); }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+
+/* ---------- ajustes ---------- */
+.setting { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+.setting:first-of-type { border-top: 0; }
+.setting .tx-ico { flex: none; }
+.setting div { flex: 1; min-width: 0; }
+.setting b { font-weight: 600; }
+.setting small { display: block; color: var(--muted); font-size: 13px; }
+.switch { position: relative; width: 46px; height: 28px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background .15s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch input:checked + span { background: var(--good); }
+.switch input:checked + span::after { transform: translateX(18px); }
+.switch input:disabled { cursor: not-allowed; }
+.switch input:disabled + span { opacity: .6; }
+.switch input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+.rules { display: flex; flex-direction: column; gap: 10px; }
+.rules div { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.rules div:first-child { border-top: 0; padding-top: 0; }
+.rules span { color: var(--muted); }
+
+/* ---------- folha (nova cobrança / comprovante) ---------- */
+.overlay { position: fixed; inset: 0; background: rgba(10,17,24,.48); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 30; transition: padding-right .2s; }
+body.dev-open .overlay { padding-right: 464px; }
+.sheet { background: var(--surface); border-radius: 22px; width: 100%; max-width: 560px; max-height: 100%; overflow: auto; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.sheet-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px 6px; }
+.sheet-head h2 { font-family: var(--f-display); font-size: 20px; margin: 0; flex: 1; }
+.icon-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--surface-2); display: grid; place-items: center; flex: none; }
+.steps-bar { display: flex; gap: 6px; padding: 6px 20px 2px; }
+.steps-bar span { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
+.steps-bar span.on { background: var(--brand); }
+.step-label { padding: 6px 20px 0; color: var(--muted); font-size: 13px; }
+.sheet-body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+.sheet-foot { padding: 0 20px 20px; display: flex; gap: 10px; }
+.search { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); }
+.search input { border: 0; background: transparent; font: inherit; color: var(--ink); width: 100%; outline: none; }
+.option { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: var(--surface); }
+.option:hover { border-color: var(--ink-2); }
+.option[aria-pressed="true"] { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); background: var(--brand-soft); }
+.option div { flex: 1; min-width: 0; }
+.option b { display: block; font-weight: 600; }
+.option small { display: block; color: var(--muted); font-size: 13px; }
+.option .val { font-family: var(--f-display); font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.option .val small { font-family: var(--f-body); font-weight: 400; }
+.option[disabled] { opacity: .5; cursor: not-allowed; }
+.sub-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.field select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; }
+.note { font-size: 13px; color: var(--muted); }
+.test-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.test-toggle input { width: 16px; height: 16px; accent-color: var(--brand); }
+.summary { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.summary .row { display: flex; justify-content: space-between; gap: 16px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.summary .row:first-child { border-top: 0; }
+.summary .row span { color: var(--muted); }
+.summary .row b { font-weight: 600; text-align: right; }
+.summary .total { background: var(--surface-2); }
+.summary .total b { font-family: var(--f-display); font-size: 22px; }
+
+.result { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding-top: 4px; }
+.result-ico { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; }
+.result-ico svg.i { width: 30px; height: 30px; stroke-width: 2.4; }
+.result-ico.ok { background: var(--good-soft); color: var(--good); }
+.result-ico.pend { background: var(--warn-soft); color: var(--warn); }
+.result-ico.bad { background: var(--bad-soft); color: var(--bad); }
+.result h3 { font-family: var(--f-display); font-size: 22px; margin: 6px 0 0; }
+.result .amount { font-family: var(--f-display); font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.result p { margin: 0; color: var(--muted); max-width: 42ch; }
+.qr-box { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: #FDFCF9; }
+.qr-box svg { width: 196px; height: 196px; display: block; }
+.qr-box small { color: #5E6B78; font-size: 12.5px; }
+.copy-field { display: flex; gap: 8px; align-items: stretch; width: 100%; }
+.copy-field code { flex: 1; min-width: 0; font-family: var(--f-mono); font-size: 12.5px; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; overflow-x: auto; white-space: nowrap; text-align: left; }
+.barcode { width: 100%; height: 64px; display: block; }
+.timer { font-family: var(--f-mono); font-weight: 600; color: var(--warn); }
+.receipt-rows { width: 100%; text-align: left; }
+.dev-only { display: none; }
+body.dev-open .dev-only { display: block; }
+.made-by { font-family: var(--f-mono); font-size: 12px; color: var(--blue); background: var(--blue-soft); border-radius: 8px; padding: 6px 10px; text-align: center; }
+
+/* ---------- painel "Por dentro" ---------- */
+.dev-toggle { position: fixed; right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: inline-flex; align-items: center; gap: 8px; background: var(--side); color: var(--side-ink); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 10px 16px; font-weight: 600; box-shadow: var(--shadow); }
+body.dev-open .dev-toggle { display: none; }
+@media (min-width: 861px) { body.dev-open .app { padding-right: 440px; } body.dev-open .side { height: 100vh; } }
+.dev { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 100%; z-index: 35; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow); display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.dev-head { display: flex; align-items: center; gap: 10px; padding: 18px 18px 10px; }
+.dev-head h2 { font-family: var(--f-display); font-size: 18px; margin: 0; flex: 1; }
+.dev-head h2 code { font-family: var(--f-mono); font-size: 16px; }
+.dev-body { overflow: auto; padding: 4px 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 10.5px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
 .tag.fixo { background: var(--surface-2); color: var(--muted); }
-.tag.tm { background: var(--orange-soft); color: var(--orange); }
+.tag.tm { background: var(--brand-soft); color: var(--brand); }
 .tag.br { background: var(--blue-soft); color: var(--blue); }
-.tag.fm { background: var(--orange); color: var(--bg); }
-.tag.hook-default { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+.tag.fm { background: var(--brand); color: #fff; }
+.tag.padrao { border: 1px dashed var(--line); color: var(--muted); }
+.code { font-family: var(--f-mono); font-size: 12px; background: var(--code-bg); color: var(--code-ink); border-radius: 12px; padding: 12px; overflow-x: auto; white-space: pre; line-height: 1.6; }
+.code .k { color: #F08A5D; } .code .c { color: var(--code-dim); } .code .b { color: #8DB8E0; }
+.dsteps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dstep { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; transition: opacity .2s, border-color .2s; }
+.dstep.pending { opacity: .35; }
+.dstep.current { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.dstep.failed { border-color: var(--bad); background: var(--bad-soft); }
+.dstep .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 13px; background: var(--surface-2); }
+.dstep.done .n { background: var(--ink); color: var(--bg); }
+.dstep.failed .n { background: var(--bad); color: #fff; }
+.dstep .b { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dstep .t { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 600; font-size: 14px; }
+.dstep .call { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.dstep .who { font-size: 12px; color: var(--muted); }
+.dstep .who b { color: var(--ink-2); font-weight: 600; }
+.dstep .out { font-size: 13px; overflow-wrap: anywhere; }
+.dev-ctrl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dev-ctrl .btn { padding: 8px 14px; font-size: 14px; }
+.dev-status { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 
-.empty { color: var(--muted); font-size: 14px; border: 1px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50; background: var(--side); color: var(--side-ink); border-radius: 12px; padding: 12px 18px; box-shadow: var(--shadow); font-weight: 500; max-width: calc(100% - 32px); }
+.foot-note { color: var(--muted); font-size: 12.5px; }
 
-.receipt { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
-.receipt .rh { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface-2); flex-wrap: wrap; }
-.receipt .rh b { font-family: var(--f-display); font-size: 17px; }
-.receipt .rh code { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
-.receipt dl { margin: 0; padding: 12px 16px; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; }
-.receipt dt { color: var(--muted); font-size: 13.5px; }
-.receipt dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.receipt .mono { font-family: var(--f-mono); font-size: 12.5px; }
-.status { font-size: 12px; font-weight: 600; letter-spacing: 1px; border-radius: 999px; padding: 3px 10px; }
-.status.APROVADO { background: var(--good-soft); color: var(--good); }
-.status.PENDENTE { background: var(--warn-soft); color: var(--warn); }
-.status.RECUSADO { background: var(--bad-soft); color: var(--bad); }
-.alert { border-radius: 10px; padding: 12px 14px; font-size: 14px; display: flex; flex-direction: column; gap: 8px; }
-.alert.bad { background: var(--bad-soft); color: var(--ink); border: 1px solid var(--bad); }
-.alert.info { background: var(--blue-soft); color: var(--ink); border: 1px solid var(--blue); }
-.alert b { font-weight: 600; }
-
-.bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 980px) { .bottom { grid-template-columns: minmax(0, 1fr); } }
-.scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 14px; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.matrix td, .matrix th { text-align: center; }
-.matrix th:first-child, .matrix td:first-child { text-align: left; }
-.matrix td.cell { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
-.matrix td.cell.on { background: var(--orange-soft); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 2px var(--orange); }
-.matrix .new { color: var(--blue); }
-.counts { display: flex; gap: 12px; flex-wrap: wrap; }
-.count { flex: 1 1 140px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
-.count .big { font-family: var(--f-display); font-size: 30px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.count.with .big { color: var(--blue); }
-.count.without .big { color: var(--orange); }
-.count small { color: var(--muted); font-size: 13px; }
-.note { font-size: 13.5px; color: var(--muted); margin: 0; }
-footer { color: var(--muted); font-size: 13px; }
+@media (max-width: 1080px) {
+  .quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+  .top, .view { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .view { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .top .new-btn { display: none; }
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 22px; }
+  .hero .k:first-child { grid-column: 1 / -1; }
+  .hero .k + .k { border-left: 0; padding-left: 0; }
+  .hero .k:nth-child(3) { border-left: 1px solid rgba(255,255,255,.12); padding-left: 18px; }
+  .hero .big { font-size: 34px; }
+  .tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line); padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
+  .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11.5px; color: var(--muted); padding: 4px 0; }
+  .tabbar button[aria-current="page"] { color: var(--brand); }
+  .tabbar .plus span { width: 44px; height: 44px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; margin-top: -18px; box-shadow: var(--shadow); }
+  .dev-toggle { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 25; }
+  .overlay { padding: 0; align-items: flex-end; }
+  body.dev-open .overlay { padding-right: 0; }
+  .sheet { border-radius: 22px 22px 0 0; max-height: 92%; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .dev { width: 100%; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
-<div class="wrap">
-  <header>
-    <div class="brand"><h1>FitPay</h1><span>Protótipo · Kit G</span></div>
-    <p>Cobre um aluno e veja, ao lado, o que <code>processar()</code> faz por dentro: Template Method conduz, Bridge cobra, Factory Method emite o comprovante.</p>
-  </header>
-
-  <div class="grid">
-    <!-- Balcão -->
-    <section class="panel" aria-labelledby="t-balcao">
-      <div class="panel-head"><h2 id="t-balcao">Nova cobrança</h2><span class="eyebrow">Balcão da recepção</span></div>
-
-      <fieldset>
-        <legend>Aluno</legend>
-        <select id="aluno"></select>
-        <p class="note" id="aluno-info"></p>
-      </fieldset>
-
-      <fieldset>
-        <legend>O que cobrar · tipo de cobrança</legend>
-        <div class="seg" id="tipos"></div>
-      </fieldset>
-
-      <div class="row" id="extra"></div>
-
-      <fieldset>
-        <legend>Como cobrar · meio de pagamento</legend>
-        <div class="seg meios" id="meios"></div>
-      </fieldset>
-
-      <div class="row" id="extra-meio"></div>
-
-      <div class="resumo">
-        <div><small>Valor estimado</small><div class="v" id="estimado">R$ 0,00</div></div>
-        <small id="estimado-nota"></small>
+<div class="app">
+  <aside class="side" aria-label="Menu">
+    <div class="logo"><span class="logo-mark">F</span><b>FitPay</b></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot"><b>Rede FitPay · Paulista</b><small>Recepção · caixa 1</small><small>Dados fictícios de exemplo</small></div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div><h1 id="title">Início</h1><div class="sub" id="subtitle"></div></div>
+      <div class="top-actions">
+        <button class="btn btn-primary new-btn" id="newTop"></button>
+        <span class="avatar" title="Recepção">RC</span>
       </div>
-
-      <div class="actions">
-        <button class="btn-primary" id="cobrar">Cobrar</button>
-        <button class="btn-ghost" id="proximo" hidden>Próximo passo</button>
-        <label class="toggle"><input type="checkbox" id="passo">Passo a passo</label>
-      </div>
-      <div id="aviso"></div>
-    </section>
-
-    <!-- Por dentro -->
-    <section class="panel" aria-labelledby="t-dentro">
-      <div class="panel-head"><h2 id="t-dentro">Por dentro de <code>processar()</code></h2><span class="eyebrow" id="trace-status">Aguardando cobrança</span></div>
-      <div class="code" id="montagem" aria-label="Como o serviço monta a cobrança"><span class="c">// ServicoCobranca monta a combinação tipo × meio (Bridge)</span>
-<span class="c">// e chama o Template Method. Clique em Cobrar.</span></div>
-      <ol class="steps" id="steps"></ol>
-      <div id="resultado"></div>
-    </section>
+    </header>
+    <section class="view" id="view" aria-live="polite"></section>
   </div>
-
-  <div class="bottom">
-    <section class="panel" aria-labelledby="t-matriz">
-      <div class="panel-head"><h2 id="t-matriz">Matriz do Bridge</h2><span class="eyebrow">Tipos × meios</span></div>
-      <div class="scroll"><table class="matrix" id="matriz"></table></div>
-      <div class="counts">
-        <div class="count with"><span class="big" id="c-com">6</span><small>classes com Bridge</small></div>
-        <div class="count without"><span class="big" id="c-sem">9</span><small>classes sem Bridge: uma por célula da tabela</small></div>
-      </div>
-      <label class="toggle"><input type="checkbox" id="debito">Incluir débito automático (um ConcreteImplementor novo)</label>
-      <p class="note">Ligar o débito automático acrescenta uma classe, <code>PagamentoDebitoAutomatico</code>, e nenhuma cobrança muda. Sem o Bridge seriam três classes novas.</p>
-    </section>
-
-    <section class="panel" aria-labelledby="t-livro">
-      <div class="panel-head"><h2 id="t-livro">Livro-caixa</h2><span class="eyebrow">Passo 6, sempre executado</span></div>
-      <div class="scroll"><table id="livro">
-        <thead><tr><th>Transação</th><th>Aluno</th><th>Cobrança</th><th>Meio</th><th class="num">Valor</th><th>Status</th></tr></thead>
-        <tbody></tbody>
-      </table></div>
-      <p class="note" id="livro-vazio">Nenhum lançamento ainda. Como <code>processar()</code> é <code>final</code>, toda cobrança que passa da validação cai aqui.</p>
-    </section>
-  </div>
-
-  <footer>Protótipo acadêmico. Alunos, preços e regras são fictícios; nenhum pagamento é feito. As classes deste protótipo seguem o relatório do Kit G.</footer>
+  <nav class="tabbar" id="tabbar" aria-label="Menu"></nav>
 </div>
+
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
+
+<aside class="dev" id="dev" hidden aria-labelledby="devTitle">
+  <div class="dev-head"><h2 id="devTitle">Por dentro de <code>processar()</code></h2><button class="icon-btn" id="devClose" aria-label="Fechar painel"></button></div>
+  <div class="dev-body" id="devBody"></div>
+</aside>
+<button class="dev-toggle" id="devToggle"></button>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 'use strict';
-/* ============================================================
-   DOMÍNIO: mesmas classes do relatório, em JavaScript
-   ============================================================ */
+/* =====================================================================
+   DOMÍNIO: as mesmas classes do repositório Java (lucasbk08/fitpay)
+   ===================================================================== */
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const DATA = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const HORA = d => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const round2 = v => Math.round(v * 100) / 100;
+function hoje() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
 let seq = 1040;
 
 class Plano { constructor(nome, valorMensal, valorAnual) { this.nome = nome; this.valorMensal = valorMensal; this.valorAnual = valorAnual; } }
 class Aluno {
-  constructor(nome, matricula, plano, opts) {
-    this.nome = nome; this.matricula = matricula; this.plano = plano;
-    this.convenio = !!opts.convenio; this.diaVencimento = opts.dia; this.bloqueado = !!opts.bloqueado; this.formaPreferida = opts.forma;
+  constructor(matricula, nome, plano, convenio, dia, bloqueado, forma, token) {
+    Object.assign(this, { matricula, nome, plano, convenio, diaVencimento: dia, bloqueado, formaPreferida: forma, tokenCartao: token });
   }
   temConvenioEmpresa() { return this.convenio; }
   estaBloqueado() { return this.bloqueado; }
@@ -261,41 +360,41 @@ class Transacao {
 }
 class ResultadoPagamento {
   constructor(status, idExterno, detalhe) { this.status = status; this.idExterno = idExterno; this.detalhe = detalhe; }
-  static aprovado(id) { return new ResultadoPagamento('APROVADO', id, 'Captura aprovada'); }
-  static pendente(id, detalhe) { return new ResultadoPagamento('PENDENTE', id, detalhe); }
+  static aprovado(id) { return new ResultadoPagamento('APROVADO', id, 'Pagamento aprovado'); }
+  static pendente(id, instrucao) { return new ResultadoPagamento('PENDENTE', id, instrucao); }
   static recusado(motivo) { return new ResultadoPagamento('RECUSADO', null, motivo); }
 }
-class CobrancaNaoPermitidaException extends Error {}
+class CobrancaNaoPermitidaException extends Error { constructor(matricula) { super('Matrícula ' + matricula + ' bloqueada: cobrança não permitida'); } }
+class IllegalArgumentException extends Error {}
 
 /* ---------- Bridge: Implementor e ConcreteImplementors ---------- */
 class MeioPagamento { executar(t) { throw new Error('abstrato'); } estornar(id) {} aceitaParcelamento() { return false; } }
 class PagamentoPix extends MeioPagamento {
-  get rotulo() { return 'Pix'; }
   executar(t) {
-    const txid = 'fp' + t.id.slice(3) + 'x7k2';
-    const copiaECola = '00020126580014br.gov.bcb.pix0136fitpay-' + txid + '5204000053039865406' + t.valor.toFixed(2);
-    return ResultadoPagamento.pendente(txid, 'QR Code gerado no PSP; expira em 30 min. Copia e cola: ' + copiaECola.slice(0, 44) + '…');
+    const txid = 'fitpay' + t.id.replace(/\D/g, '') + 'pix';
+    const v = t.valor.toFixed(2);
+    const copiaECola = '00020126580014br.gov.bcb.pix0136' + txid + '520400005303986540' + v.length + v + '5802BR5906FITPAY6009SAO PAULO';
+    return ResultadoPagamento.pendente(txid, copiaECola);
   }
 }
 class PagamentoCartao extends MeioPagamento {
-  constructor(simulaRecusa) { super(); this.simulaRecusa = simulaRecusa; }
-  get rotulo() { return 'Cartão'; }
   executar(t) {
-    if (this.simulaRecusa) return ResultadoPagamento.recusado('Adquirente recusou: saldo insuficiente');
-    return ResultadoPagamento.aprovado('NSU ' + (480000 + seq));
+    if (!t.aluno.tokenCartao) return ResultadoPagamento.recusado('Aluno sem cartão cadastrado');
+    if (t.aluno.tokenCartao.startsWith('tok_recusa')) return ResultadoPagamento.recusado('Saldo insuficiente');
+    return ResultadoPagamento.aprovado(String(480000 + seq));
   }
   aceitaParcelamento() { return true; }
 }
 class PagamentoBoleto extends MeioPagamento {
-  get rotulo() { return 'Boleto'; }
   executar(t) {
-    const nossoNumero = '2026' + String(seq).padStart(8, '0');
-    return ResultadoPagamento.pendente(nossoNumero, 'Boleto registrado no banco. Linha digitável: 34191.09008 ' + nossoNumero.slice(0, 5) + '.' + nossoNumero.slice(5) + ' …');
+    const nossoNumero = String(20260000 + seq);
+    const centavos = String(Math.round(t.valor * 100)).padStart(10, '0');
+    const linha = '34191.09008 ' + nossoNumero.slice(0, 5) + '.' + nossoNumero.slice(5) + ' 00000.000000 1 ' + centavos;
+    return ResultadoPagamento.pendente(nossoNumero, linha);
   }
 }
 class PagamentoDebitoAutomatico extends MeioPagamento {
-  get rotulo() { return 'Débito automático'; }
-  executar(t) { return ResultadoPagamento.pendente('DA' + seq, 'Débito agendado na conta do aluno para ' + DATA(t.vencimento)); }
+  executar(t) { return ResultadoPagamento.pendente('DA' + seq, 'Débito agendado para ' + DATA(t.vencimento)); }
 }
 
 /* ---------- Factory Method: Product e ConcreteProducts ---------- */
@@ -303,19 +402,22 @@ class Comprovante { constructor(t, r) { this.transacao = t; this.resultado = r; 
 class ReciboMensalidade extends Comprovante {
   constructor(t, r, competencia, proximo) { super(t, r); this.competencia = competencia; this.proximo = proximo; }
   get titulo() { return 'Recibo de mensalidade'; }
-  linhas() { return [['Competência', MES[this.competencia.m] + '/' + this.competencia.y], ['Valor', BRL.format(this.transacao.valor)], ['Vencimento', DATA(this.transacao.vencimento)], ['Próximo vencimento', DATA(this.proximo)]]; }
+  renderizar() { return 'Mensalidade ' + String(this.competencia.m + 1).padStart(2, '0') + '/' + this.competencia.y + ' de R$ ' + this.transacao.valor.toFixed(2); }
+  linhas() { return [['Competência', MES[this.competencia.m] + '/' + this.competencia.y], ['Vencimento', DATA(this.transacao.vencimento)], ['Próximo vencimento', DATA(this.proximo)]]; }
 }
 class ReciboAvulso extends Comprovante {
   constructor(t, r, item) { super(t, r); this.item = item; }
   get titulo() { return 'Recibo avulso'; }
-  linhas() { return [['Item', this.item.nome], ['Valor', BRL.format(this.transacao.valor)], ['Vencimento', DATA(this.transacao.vencimento)]]; }
+  renderizar() { return this.item.nome + ' de R$ ' + this.transacao.valor.toFixed(2); }
+  linhas() { return [['Item', this.item.nome], ['Vencimento', DATA(this.transacao.vencimento)]]; }
 }
 class ExtratoParcelamento extends Comprovante {
   constructor(t, r, parcelas) { super(t, r); this.parcelas = parcelas; }
   get titulo() { return 'Extrato do plano anual'; }
+  renderizar() { return 'Plano anual em ' + this.parcelas + 'x de R$ ' + round2(this.transacao.valor / this.parcelas).toFixed(2); }
   linhas() {
-    const p = this.parcelas, v = this.transacao.valor;
-    return [['Valor total', BRL.format(v)], ['Parcelamento', p === 1 ? 'À vista (10% de desconto aplicado)' : p + 'x de ' + BRL.format(round2(v / p))], ['1º vencimento', DATA(this.transacao.vencimento)]];
+    const p = this.parcelas;
+    return [['Forma', p === 1 ? 'À vista, com 10% de desconto' : p + 'x de ' + BRL.format(round2(this.transacao.valor / p))], ['1º vencimento', DATA(this.transacao.vencimento)]];
   }
 }
 
@@ -325,39 +427,36 @@ class Cobranca {
     if (new.target === Cobranca) throw new Error('Cobranca é abstrata');
     this.aluno = aluno; this.meio = meio; this.livroCaixa = livroCaixa; this.notificador = notificador;
   }
-  /* Template Method: a ordem é fixa. (No Java, é declarado final.) */
+  /* Template Method: a ordem é fixa (no Java, declarado final) */
   processar(trace) {
+    trace = trace || Trace.nulo;
     trace.step(1, () => { this.validarAluno(); return 'Aluno liberado para cobrança'; }, 'validarAluno');
     let valor;
     trace.step(2, () => { valor = this.calcularValor(); return 'Valor bruto: ' + BRL.format(valor); }, 'calcularValor');
-    trace.step(3, () => { const antes = valor; valor = this.aplicarDescontos(valor); return antes === valor ? 'Sem desconto: ' + BRL.format(valor) : BRL.format(antes) + ' → ' + BRL.format(valor) + ' (' + this.motivoDesconto() + ')'; }, 'aplicarDescontos');
+    trace.step(3, () => { const a = valor; valor = this.aplicarDescontos(valor); return a === valor ? 'Sem desconto: ' + BRL.format(valor) : BRL.format(a) + ' → ' + BRL.format(valor) + ' (' + this.motivoDesconto() + ')'; }, 'aplicarDescontos');
     let t;
     trace.step(4, () => { t = Transacao.nova(this.aluno, valor, this.parcelas(), this.vencimento()); return t.id + ' · ' + (t.parcelas > 1 ? t.parcelas + ' parcelas' : 'parcela única') + ' · vence ' + DATA(t.vencimento); }, ['parcelas', 'vencimento']);
     let r;
-    trace.step(5, () => { r = this.meio.executar(t); return r.status + ' · ' + r.detalhe; }, null, this.meio.constructor.name);
+    trace.step(5, () => { r = this.meio.executar(t); return r.status + (r.status === 'RECUSADO' ? ' · ' + r.detalhe : r.idExterno ? ' · ' + r.idExterno : ''); }, null, this.meio.constructor.name);
     trace.step(6, () => { this.livroCaixa.registrar(t, r, this); return 'Lançamento ' + t.id + ' registrado'; }, null);
     let c;
     trace.step(7, () => { c = this.criarComprovante(t, r); return 'new ' + c.constructor.name + '(…)'; }, 'criarComprovante');
     trace.step(8, () => { if (this.deveNotificar(r)) { this.notificador.enviar(this.aluno, c); return 'Comprovante enviado para ' + this.aluno.nome.split(' ')[0]; } return 'Notificação dispensada'; }, 'deveNotificar');
     return c;
   }
-  validarAluno() { if (this.aluno.estaBloqueado()) throw new CobrancaNaoPermitidaException('Matrícula ' + this.aluno.matricula + ' bloqueada por inadimplência'); }
-  /* operações primitivas (abstratas) */
+  validarAluno() { if (this.aluno.estaBloqueado()) throw new CobrancaNaoPermitidaException(this.aluno.matricula); }
   calcularValor() { throw new Error('abstrato'); }
   criarComprovante(t, r) { throw new Error('abstrato'); }
-  /* ganchos (hooks) */
   aplicarDescontos(v) { return v; }
   motivoDesconto() { return ''; }
   parcelas() { return 1; }
   vencimento() { const d = hoje(); d.setDate(d.getDate() + 3); return d; }
   deveNotificar(r) { return true; }
 }
-
-/* ---------- ConcreteClasses (e ConcreteCreators) ---------- */
 class CobrancaMensalidade extends Cobranca {
-  constructor(aluno, meio, livro, notif, competencia) { super(aluno, meio, livro, notif); this.competencia = competencia; }
-  get rotulo() { return 'Mensalidade'; }
-  calcularValor() { return this.aluno.plano.valorMensal; }
+  constructor(aluno, meio, livro, notif, plano, competencia) { super(aluno, meio, livro, notif); this.plano = plano; this.competencia = competencia; }
+  get rotulo() { return 'Mensalidade ' + MES[this.competencia.m] + '/' + this.competencia.y; }
+  calcularValor() { return this.plano.valorMensal; }
   aplicarDescontos(v) { return this.aluno.temConvenioEmpresa() ? round2(v * 0.85) : v; }
   motivoDesconto() { return 'convênio empresarial, 15%'; }
   vencimento() { return new Date(this.competencia.y, this.competencia.m, this.aluno.diaVencimento); }
@@ -365,300 +464,583 @@ class CobrancaMensalidade extends Cobranca {
 }
 class CobrancaAvulsa extends Cobranca {
   constructor(aluno, meio, livro, notif, item) { super(aluno, meio, livro, notif); this.item = item; }
-  get rotulo() { return 'Avulsa: ' + this.item.nome.toLowerCase(); }
+  get rotulo() { return this.item.nome; }
   calcularValor() { return this.item.preco; }
   vencimento() { return hoje(); }
   criarComprovante(t, r) { return new ReciboAvulso(t, r, this.item); }
 }
 class CobrancaPlanoAnual extends Cobranca {
-  constructor(aluno, meio, livro, notif, parcelas) {
+  constructor(aluno, meio, livro, notif, plano, parcelas) {
     super(aluno, meio, livro, notif);
     if (parcelas > 1 && !meio.aceitaParcelamento()) throw new IllegalArgumentException('Parcelamento só é aceito no cartão');
-    this._parcelas = parcelas;
+    this.plano = plano; this._parcelas = parcelas;
   }
-  get rotulo() { return 'Plano anual'; }
-  calcularValor() { return this.aluno.plano.valorAnual; }
+  get rotulo() { return 'Plano anual ' + this.plano.nome + (this._parcelas > 1 ? ' em ' + this._parcelas + 'x' : ' à vista'); }
+  calcularValor() { return this.plano.valorAnual; }
   aplicarDescontos(v) { return this._parcelas === 1 ? round2(v * 0.90) : v; }
   motivoDesconto() { return 'à vista, 10%'; }
   parcelas() { return this._parcelas; }
   criarComprovante(t, r) { return new ExtratoParcelamento(t, r, this._parcelas); }
 }
-class IllegalArgumentException extends Error {}
 
 /* ---------- colaboradores injetados (sem Singleton) ---------- */
-class LivroCaixa { constructor(onChange) { this.lancamentos = []; this.onChange = onChange; } registrar(t, r, cobranca) { this.lancamentos.unshift({ t, r, cobranca }); } }
+class LivroCaixa {
+  constructor() { this.lancamentos = []; }
+  registrar(t, r, cobranca) { this.lancamentos.unshift({ t, r, cobranca, quando: new Date(), confirmado: false, comprovante: null }); }
+}
 class Notificador { constructor() { this.enviados = []; } enviar(aluno, c) { this.enviados.push({ aluno, c }); } }
 
-function hoje() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+/* ---------- cliente: ServicoCobranca e Agendador ---------- */
+class ServicoCobranca {
+  constructor(meios, livro, notificador) { this.meios = meios; this.livro = livro; this.notificador = notificador; }
+  montar(aluno, pedido, forma) {
+    const meio = this.meios.get(forma);
+    if (pedido.tipo === 'mensalidade') return new CobrancaMensalidade(aluno, meio, this.livro, this.notificador, aluno.plano, COMPETENCIA);
+    if (pedido.tipo === 'avulsa') return new CobrancaAvulsa(aluno, meio, this.livro, this.notificador, pedido.item);
+    return new CobrancaPlanoAnual(aluno, meio, this.livro, this.notificador, aluno.plano, pedido.parcelas);
+  }
+}
+class Agendador {
+  constructor(servico, alunos) { this.servico = servico; this.alunos = alunos; }
+  executar(dia) {
+    const comprovantes = [], ignorados = [];
+    for (const aluno of this.alunos) {
+      if (aluno.diaVencimento !== dia) continue;
+      try { comprovantes.push(this.servico.montar(aluno, { tipo: 'mensalidade' }, aluno.formaPreferida).processar()); }
+      catch (e) { if (e instanceof CobrancaNaoPermitidaException) ignorados.push(aluno.nome); else throw e; }
+    }
+    return { comprovantes, ignorados };
+  }
+}
 
-/* ============================================================
-   DADOS DE EXEMPLO (fictícios)
-   ============================================================ */
-const BLACK = new Plano('Black', 149.90, 1499.00);
-const BASICO = new Plano('Básico', 99.90, 999.00);
-const ALUNOS = [
-  new Aluno('Ana Souza', '2024-0187', BLACK, { convenio: true, dia: 10, forma: 'cartao' }),
-  new Aluno('Bruno Lima', '2025-0342', BASICO, { convenio: false, dia: 5, forma: 'pix' }),
-  new Aluno('Carla Mendes', '2023-0099', BLACK, { convenio: false, dia: 15, forma: 'boleto', bloqueado: true }),
-];
-const ITENS = [ { id: 'diaria', nome: 'Diária', preco: 35.00 }, { id: 'personal', nome: 'Aula com personal', preco: 90.00 }, { id: 'matricula', nome: 'Taxa de matrícula', preco: 60.00 } ];
-const TIPOS = [
-  { id: 'mensalidade', nome: 'Mensalidade', classe: 'CobrancaMensalidade', dica: 'Recorrente' },
-  { id: 'avulsa', nome: 'Avulsa', classe: 'CobrancaAvulsa', dica: 'Diária, personal…' },
-  { id: 'anual', nome: 'Plano anual', classe: 'CobrancaPlanoAnual', dica: 'À vista ou parcelado' },
-];
-const MEIOS_BASE = [
-  { id: 'pix', nome: 'Pix', classe: 'PagamentoPix', dica: 'PSP · fica pendente' },
-  { id: 'cartao', nome: 'Cartão', classe: 'PagamentoCartao', dica: 'Adquirente · na hora' },
-  { id: 'boleto', nome: 'Boleto', classe: 'PagamentoBoleto', dica: 'Banco · fica pendente' },
-];
-const MEIO_DEBITO = { id: 'debito', nome: 'Débito auto.', classe: 'PagamentoDebitoAutomatico', dica: 'Novo implementador' };
-const COMPETENCIA = (() => { const d = hoje(); return { y: d.getFullYear(), m: d.getMonth() }; })();
-
-/* metadados de cada passo do template, para a tela */
-const PASSOS = {
-  1: { nome: 'Validar aluno', tag: ['fixo', 'Fixo'], call: 'validarAluno()' },
-  2: { nome: 'Calcular valor', tag: ['tm', 'Abstrato'], call: 'calcularValor()' },
-  3: { nome: 'Aplicar descontos', tag: ['tm', 'Gancho'], call: 'aplicarDescontos(v)' },
-  4: { nome: 'Montar transação', tag: ['tm', 'Ganchos'], call: 'Transacao.nova(aluno, v, parcelas(), vencimento())' },
-  5: { nome: 'Pagar no meio escolhido', tag: ['br', 'Bridge'], call: 'meio.executar(t)' },
-  6: { nome: 'Registrar no livro-caixa', tag: ['fixo', 'Fixo'], call: 'livroCaixa.registrar(t, r)' },
-  7: { nome: 'Gerar comprovante', tag: ['fm', 'Factory Method'], call: 'criarComprovante(t, r)' },
-  8: { nome: 'Notificar o aluno', tag: ['tm', 'Gancho'], call: 'if (deveNotificar(r)) notificador.enviar(aluno, c)' },
-};
-
-/* Descobre, por reflexão, quem implementou o passo: a subclasse ou o padrão de Cobranca */
+/* Registra cada passo do template de verdade, para o painel "Por dentro" */
+class Trace {
+  constructor(cobranca) { this.cobranca = cobranca; this.eventos = []; }
+  step(n, fn, metodos, donoFixo) {
+    const ev = { n, quem: donoFixo ? [{ m: null, dono: donoFixo }] : quemImplementa(this.cobranca, metodos) };
+    try { ev.out = fn(); ev.ok = true; this.eventos.push(ev); }
+    catch (e) { ev.out = e.message; ev.ok = false; ev.erro = e.constructor.name; this.eventos.push(ev); throw e; }
+  }
+}
+Trace.nulo = { step(n, fn) { fn(); } };
 function quemImplementa(obj, metodos) {
   if (!metodos) return null;
-  const lista = Array.isArray(metodos) ? metodos : [metodos];
-  return lista.map(m => {
+  return (Array.isArray(metodos) ? metodos : [metodos]).map(m => {
     const dono = Object.getPrototypeOf(obj).hasOwnProperty(m) ? obj.constructor.name : 'Cobranca';
     return { m, dono, padrao: dono === 'Cobranca' };
   });
 }
 
-/* ============================================================
-   TELA
-   ============================================================ */
-const $ = id => document.getElementById(id);
-const state = { aluno: 0, tipo: 'mensalidade', item: 'diaria', parcelas: 1, meio: 'cartao', recusa: false, debito: false, passo: false };
+/* =====================================================================
+   DADOS DE EXEMPLO (fictícios)
+   ===================================================================== */
+const BLACK = new Plano('Black', 149.90, 1499.00);
+const BASICO = new Plano('Básico', 99.90, 999.00);
+const ALUNOS = [
+  new Aluno('2024-0187', 'Ana Souza', BLACK, true, 10, false, 'cartao', 'tok_ana_4242'),
+  new Aluno('2025-0342', 'Bruno Lima', BASICO, false, 5, false, 'pix', 'tok_bruno_1881'),
+  new Aluno('2023-0099', 'Carla Mendes', BLACK, false, 10, true, 'boleto', null),
+  new Aluno('2025-0410', 'Diego Rocha', BASICO, false, 20, false, 'cartao', 'tok_recusa_0002'),
+  new Aluno('2024-0233', 'Elisa Prado', BLACK, false, 10, false, 'boleto', null),
+];
+const ITENS = [ { id: 'diaria', nome: 'Diária', preco: 35.00 }, { id: 'personal', nome: 'Aula com personal', preco: 90.00 }, { id: 'matricula', nome: 'Taxa de matrícula', preco: 60.00 } ];
+const COMPETENCIA = (() => { const d = hoje(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+const MEIOS_INFO = {
+  pix:    { nome: 'Pix', desc: 'QR Code, confirma em segundos', classe: 'PagamentoPix', ico: 'pix' },
+  cartao: { nome: 'Cartão de crédito', desc: 'Aprovação na hora, até 12x', classe: 'PagamentoCartao', ico: 'card' },
+  boleto: { nome: 'Boleto', desc: 'Compensa em até 2 dias úteis', classe: 'PagamentoBoleto', ico: 'barcode' },
+  debito: { nome: 'Débito automático', desc: 'Debita na conta no vencimento', classe: 'PagamentoDebitoAutomatico', ico: 'bolt' },
+};
+const TIPOS_INFO = {
+  mensalidade: { nome: 'Mensalidade', classe: 'CobrancaMensalidade' },
+  avulsa: { nome: 'Serviço avulso', classe: 'CobrancaAvulsa' },
+  anual: { nome: 'Plano anual', classe: 'CobrancaPlanoAnual' },
+};
+const PASSOS = {
+  1: ['Validar aluno', 'fixo', 'Fixo', 'validarAluno()'],
+  2: ['Calcular valor', 'tm', 'Abstrato', 'calcularValor()'],
+  3: ['Aplicar descontos', 'tm', 'Gancho', 'aplicarDescontos(v)'],
+  4: ['Montar transação', 'tm', 'Ganchos', 'Transacao.nova(aluno, v, parcelas(), vencimento())'],
+  5: ['Pagar no meio escolhido', 'br', 'Bridge', 'meio.executar(t)'],
+  6: ['Registrar no livro-caixa', 'fixo', 'Fixo', 'livroCaixa.registrar(t, r)'],
+  7: ['Gerar comprovante', 'fm', 'Factory Method', 'criarComprovante(t, r)'],
+  8: ['Notificar o aluno', 'tm', 'Gancho', 'if (deveNotificar(r)) notificador.enviar(aluno, c)'],
+};
+
+/* montagem com injeção pelo construtor */
 const livro = new LivroCaixa();
 const notificador = new Notificador();
-let replay = null;
+const meios = new Map([['pix', new PagamentoPix()], ['cartao', new PagamentoCartao()], ['boleto', new PagamentoBoleto()]]);
+const servico = new ServicoCobranca(meios, livro, notificador);
+const agendador = new Agendador(servico, ALUNOS);
 
-function meios() { return state.debito ? [...MEIOS_BASE, MEIO_DEBITO] : MEIOS_BASE; }
+/* =====================================================================
+   TELA
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const ICON = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.8c1.8.8 3 2.6 3.5 5.2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  pix: '<path d="M12 3l9 9-9 9-9-9z"/><path d="M8 12l4-4 4 4-4 4z"/>',
+  card: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6 15h4"/>',
+  barcode: '<path d="M4 5v14M7 5v14M10 5v14M14 5v14M16 5v14M20 5v14"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/>',
+  code: '<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>',
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+};
+const ico = (n, extra = '') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" ${extra}>${ICON[n]}</svg>`;
+const iniciais = nome => nome.split(' ').map(p => p[0]).slice(0, 2).join('');
 
-function radioGroup(container, name, items, current) {
-  container.innerHTML = items.map(it => `<input type="radio" name="${name}" id="${name}-${it.id}" value="${it.id}" ${it.id === current ? 'checked' : ''}><label for="${name}-${it.id}"><b>${it.nome}</b><small>${it.dica}</small></label>`).join('');
+const state = { view: 'inicio', filtro: 'todos', flow: null, recibo: null, trace: null, mostrados: 0, passoAPasso: false, montagem: '' };
+const VIEWS = [
+  { id: 'inicio', nome: 'Início', ico: 'home' },
+  { id: 'extrato', nome: 'Extrato', ico: 'list' },
+  { id: 'alunos', nome: 'Alunos', ico: 'users' },
+  { id: 'ajustes', nome: 'Ajustes', ico: 'gear' },
+];
+
+function statusDe(l) { return l.confirmado ? 'APROVADO' : l.r.status; }
+function meioId(meio) { for (const [k, v] of meios) if (v === meio) return k; return 'pix'; }
+function totais() {
+  const t = { recebido: 0, receber: 0, recusado: 0, nRec: 0, nPend: 0, nBad: 0 };
+  for (const l of livro.lancamentos) {
+    const s = statusDe(l);
+    if (s === 'APROVADO') { t.recebido += l.t.valor; t.nRec++; }
+    else if (s === 'PENDENTE') { t.receber += l.t.valor; t.nPend++; }
+    else { t.recusado += l.t.valor; t.nBad++; }
+  }
+  return t;
 }
 
-function renderForm() {
-  $('aluno').innerHTML = ALUNOS.map((a, i) => `<option value="${i}" ${i === state.aluno ? 'selected' : ''}>${a.nome} · plano ${a.plano.nome}${a.bloqueado ? ' · bloqueado' : ''}</option>`).join('');
-  radioGroup($('tipos'), 'tipo', TIPOS, state.tipo);
-  radioGroup($('meios'), 'meio', meios(), state.meio);
-  renderExtra(); renderInfo(); renderEstimado(); renderMatriz();
+function toast(msg) {
+  const el = $('toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 2600);
+}
+async function copiar(texto) {
+  try { await navigator.clipboard.writeText(texto); toast('Copiado'); }
+  catch (e) { toast('Não deu para copiar automaticamente. Selecione o código e copie.'); }
 }
 
-function renderInfo() {
-  const a = ALUNOS[state.aluno];
-  const partes = ['Matrícula ' + a.matricula, 'vence todo dia ' + a.diaVencimento];
-  if (a.convenio) partes.push('convênio empresarial');
-  if (a.bloqueado) partes.push('matrícula bloqueada');
-  $('aluno-info').textContent = partes.join(' · ');
+/* ---------- navegação ---------- */
+function renderNav() {
+  $('nav').innerHTML = VIEWS.map(v => `<button data-view="${v.id}" ${state.view === v.id ? 'aria-current="page"' : ''}>${ico(v.ico)}${v.nome}</button>`).join('');
+  const tabs = [VIEWS[0], VIEWS[1], null, VIEWS[2], VIEWS[3]];
+  $('tabbar').innerHTML = tabs.map(v => v
+    ? `<button data-view="${v.id}" ${state.view === v.id ? 'aria-current="page"' : ''}>${ico(v.ico)}<span>${v.nome}</span></button>`
+    : `<button class="plus" data-new="1" aria-label="Nova cobrança"><span>${ico('plus')}</span></button>`).join('');
+}
+function go(view) { state.view = view; render(); window.scrollTo(0, 0); }
+
+function render() {
+  renderNav();
+  const v = VIEWS.find(x => x.id === state.view);
+  $('title').textContent = v.nome;
+  const d = new Date();
+  const h = d.getHours();
+  $('subtitle').textContent = state.view === 'inicio'
+    ? (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + ', recepção · ' + d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+    : state.view === 'extrato' ? 'Livro-caixa da unidade' : state.view === 'alunos' ? ALUNOS.length + ' alunos ativos na unidade' : 'Meios de pagamento e regras';
+  $('view').innerHTML = { inicio: viewInicio, extrato: viewExtrato, alunos: viewAlunos, ajustes: viewAjustes }[state.view]();
 }
 
-function renderExtra() {
-  const ex = $('extra'), em = $('extra-meio');
-  if (state.tipo === 'avulsa') {
-    ex.innerHTML = `<fieldset><legend>Item avulso</legend><select id="item">${ITENS.map(i => `<option value="${i.id}" ${i.id === state.item ? 'selected' : ''}>${i.nome} · ${BRL.format(i.preco)}</option>`).join('')}</select></fieldset>`;
-    $('item').onchange = e => { state.item = e.target.value; renderEstimado(); };
-  } else if (state.tipo === 'anual') {
-    const ops = [1, 2, 3, 6, 10, 12];
-    ex.innerHTML = `<fieldset><legend>Parcelas</legend><select id="parcelas">${ops.map(p => `<option value="${p}" ${p === state.parcelas ? 'selected' : ''}>${p === 1 ? 'À vista (10% de desconto)' : p + 'x no cartão'}</option>`).join('')}</select></fieldset>`;
-    $('parcelas').onchange = e => { state.parcelas = +e.target.value; renderEstimado(); };
+function txRow(l) {
+  const s = statusDe(l), mid = meioId(l.cobranca.meio), mi = MEIOS_INFO[mid];
+  return `<button class="tx" data-tx="${l.t.id}">
+    <span class="tx-ico">${ico(mi.ico)}</span>
+    <span class="tx-main"><b>${l.cobranca.rotulo}</b><small>${l.t.aluno.nome} · ${mi.nome} · ${HORA(l.quando)}</small></span>
+    <span class="tx-right"><b>${BRL.format(l.t.valor)}</b><span class="pill ${s}">${s === 'APROVADO' ? 'Pago' : s === 'PENDENTE' ? 'Aguardando' : 'Recusado'}</span></span>
+  </button>`;
+}
+
+function viewInicio() {
+  const t = totais();
+  const ultimos = livro.lancamentos.slice(0, 6);
+  const dia = hoje().getDate();
+  const doDia = ALUNOS.filter(a => a.diaVencimento === 10);
+  return `
+  <div class="hero">
+    <div class="k"><div class="label"><span class="dot" style="background:var(--good)"></span>Recebido hoje</div><div class="big num">${BRL.format(t.recebido)}</div><div class="hint">${t.nRec} pagamento${t.nRec === 1 ? '' : 's'} confirmado${t.nRec === 1 ? '' : 's'}</div></div>
+    <div class="k"><div class="label"><span class="dot" style="background:var(--warn)"></span>A receber</div><div class="mid num">${BRL.format(t.receber)}</div><div class="hint">${t.nPend} aguardando Pix, boleto ou débito</div></div>
+    <div class="k"><div class="label"><span class="dot" style="background:var(--bad)"></span>Recusado</div><div class="mid num">${BRL.format(t.recusado)}</div><div class="hint">${t.nBad} tentativa${t.nBad === 1 ? '' : 's'} sem sucesso</div></div>
+  </div>
+  <div class="quick">
+    <button data-new="1"><span class="qi">${ico('plus')}</span><b>Nova cobrança</b><small>Mensalidade, avulso ou plano anual</small></button>
+    <button id="runAgenda"><span class="qi">${ico('calendar')}</span><b>Cobranças do dia 10</b><small>${doDia.length} aluno${doDia.length === 1 ? '' : 's'} com vencimento no dia 10</small></button>
+    <button data-view="extrato"><span class="qi">${ico('receipt')}</span><b>Extrato</b><small>${livro.lancamentos.length} lançamento${livro.lancamentos.length === 1 ? '' : 's'} no livro-caixa</small></button>
+    <button data-view="ajustes"><span class="qi">${ico('card')}</span><b>Meios de pagamento</b><small>${meios.size} ativo${meios.size === 1 ? '' : 's'}</small></button>
+  </div>
+  <div class="cols">
+    <div class="card"><div class="card-head"><h2>Últimas cobranças</h2><button class="link" data-view="extrato">Ver extrato</button></div>
+      ${ultimos.length ? `<div class="tx-list">${ultimos.map(txRow).join('')}</div>` : `<div class="empty">Nenhuma cobrança ainda. Toque em Nova cobrança para começar.</div>`}
+    </div>
+    <div class="card"><div class="card-head"><h2>Vencendo no dia 10</h2></div>
+      <div class="tx-list">${doDia.map(a => `<button class="tx" data-cobrar="${ALUNOS.indexOf(a)}">
+        <span class="avatar">${iniciais(a.nome)}</span>
+        <span class="tx-main"><b>${a.nome}</b><small>Plano ${a.plano.nome} · ${MEIOS_INFO[a.formaPreferida].nome}</small></span>
+        <span class="tx-right">${a.bloqueado ? '<span class="pill RECUSADO">Bloqueada</span>' : `<b>${BRL.format(a.convenio ? round2(a.plano.valorMensal * .85) : a.plano.valorMensal)}</b>`}</span>
+      </button>`).join('')}</div>
+    </div>
+  </div>
+  <p class="foot-note">Protótipo acadêmico do Kit G. Alunos, valores e pagamentos são fictícios; nenhum dinheiro é movimentado.</p>`;
+}
+
+function viewExtrato() {
+  const filtros = [['todos', 'Todos'], ['APROVADO', 'Pagos'], ['PENDENTE', 'Aguardando'], ['RECUSADO', 'Recusados']];
+  const lista = livro.lancamentos.filter(l => state.filtro === 'todos' || statusDe(l) === state.filtro);
+  const soma = lista.reduce((s, l) => s + l.t.valor, 0);
+  return `
+  <div class="chips">${filtros.map(([id, n]) => `<button class="chip" data-filtro="${id}" aria-pressed="${state.filtro === id}">${n}</button>`).join('')}</div>
+  <div class="card">
+    ${lista.length ? `<div class="day-head"><span>Hoje</span><span class="num">${BRL.format(soma)}</span></div><div class="tx-list">${lista.map(txRow).join('')}</div>`
+      : `<div class="empty">Nenhum lançamento neste filtro.</div>`}
+  </div>
+  <p class="foot-note">Toda cobrança que passa da validação entra aqui, qualquer que seja o tipo ou o meio de pagamento.</p>`;
+}
+
+function viewAlunos() {
+  return `<div class="people">${ALUNOS.map((a, i) => `
+    <div class="card person">
+      <div class="person-top"><span class="avatar">${iniciais(a.nome)}</span><div><b>${a.nome}</b><small>Matrícula ${a.matricula}</small></div></div>
+      <div class="badges">${a.convenio ? '<span class="badge blue">Convênio empresarial</span>' : ''}${a.bloqueado ? '<span class="badge bad">Matrícula bloqueada</span>' : ''}<span class="badge">Plano ${a.plano.nome}</span></div>
+      <dl class="facts"><dt>Mensalidade</dt><dd class="num">${BRL.format(a.plano.valorMensal)}</dd><dt>Vencimento</dt><dd>Todo dia ${a.diaVencimento}</dd><dt>Paga com</dt><dd>${MEIOS_INFO[a.formaPreferida].nome}${a.tokenCartao && a.formaPreferida === 'cartao' ? ' final ' + a.tokenCartao.slice(-4) : ''}</dd></dl>
+      <button class="btn btn-ghost" data-cobrar="${i}">${ico('plus')}Cobrar</button>
+    </div>`).join('')}</div>`;
+}
+
+function viewAjustes() {
+  const linha = (id, fixo) => { const m = MEIOS_INFO[id]; const on = meios.has(id);
+    return `<div class="setting"><span class="tx-ico">${ico(m.ico)}</span><div><b>${m.nome}${id === 'debito' ? ' <span class="badge blue">Novo</span>' : ''}</b><small>${m.desc}</small></div>
+      <label class="switch" title="${fixo ? 'Sempre ativo' : 'Ativar ou desativar'}"><input type="checkbox" id="sw-${id}" data-meio="${id}" ${on ? 'checked' : ''} ${fixo ? 'disabled' : ''} aria-label="${m.nome}"><span></span></label></div>`; };
+  return `
+  <div class="cols">
+    <div class="card"><div class="card-head"><h2>Meios de pagamento</h2></div>
+      ${linha('pix', true)}${linha('cartao', true)}${linha('boleto', true)}${linha('debito', false)}
+      <p class="note">Um meio novo entra sem mudar nenhuma regra de cobrança.</p>
+    </div>
+    <div class="card"><div class="card-head"><h2>Regras de cobrança</h2></div>
+      <div class="rules">
+        <div><span>Convênio empresarial</span><b>15% na mensalidade</b></div>
+        <div><span>Plano anual à vista</span><b>10% de desconto</b></div>
+        <div><span>Parcelamento</span><b>Até 12x, só no cartão</b></div>
+        <div><span>Pix</span><b>Expira em 30 minutos</b></div>
+        <div><span>Matrícula bloqueada</span><b>Não pode ser cobrada</b></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   FLUXO DE NOVA COBRANÇA
+   ===================================================================== */
+function abrirFluxo(alunoIdx) {
+  state.flow = { step: alunoIdx == null ? 1 : 2, aluno: alunoIdx ?? null, tipo: null, item: 'diaria', parcelas: 1, meio: null, recusa: false, busca: '' };
+  state.recibo = null;
+  if (alunoIdx != null) state.flow.meio = ALUNOS[alunoIdx].formaPreferida;
+  $('overlay').hidden = false;
+  renderSheet();
+}
+function fecharSheet() { $('overlay').hidden = true; state.flow = null; state.recibo = null; render(); }
+
+function previa(f) {
+  /* reaproveita as próprias classes: calcula o valor sem processar */
+  const aluno = ALUNOS[f.aluno];
+  const pedido = { tipo: f.tipo, item: ITENS.find(i => i.id === f.item), parcelas: f.parcelas };
+  try { const c = servico.montar(aluno, pedido, f.meio || 'cartao'); return { valor: round2(c.aplicarDescontos(c.calcularValor())), cobranca: c }; }
+  catch (e) { return { valor: null, erro: e.message }; }
+}
+function valorTipo(aluno, tipo) {
+  const c = servico.montar(aluno, { tipo, item: ITENS[0], parcelas: 1 }, 'cartao');
+  return { bruto: c.calcularValor(), final: round2(c.aplicarDescontos(c.calcularValor())) };
+}
+
+function sheetHead(titulo, voltar) {
+  return `<div class="sheet-head">${voltar ? `<button class="icon-btn" data-back="1" aria-label="Voltar">${ico('back')}</button>` : ''}<h2 id="sheetTitle">${titulo}</h2><button class="icon-btn" data-close="1" aria-label="Fechar">${ico('x')}</button></div>`;
+}
+function stepsBar(n) {
+  const nomes = ['Aluno', 'Cobrança', 'Pagamento', 'Revisão'];
+  return `<div class="steps-bar">${nomes.map((_, i) => `<span class="${i < n ? 'on' : ''}"></span>`).join('')}</div><div class="step-label">Etapa ${n} de 4 · ${nomes[n - 1]}</div>`;
+}
+
+function renderSheet() {
+  const s = $('sheet');
+  if (state.recibo) { s.innerHTML = sheetRecibo(state.recibo); return; }
+  const f = state.flow;
+  if (f.step === 1) {
+    const q = f.busca.toLowerCase();
+    const lista = ALUNOS.map((a, i) => [a, i]).filter(([a]) => !q || a.nome.toLowerCase().includes(q) || a.matricula.includes(q));
+    s.innerHTML = sheetHead('Nova cobrança') + stepsBar(1) + `<div class="sheet-body">
+      <label class="search">${ico('search')}<input id="busca" type="search" placeholder="Buscar aluno por nome ou matrícula" value="${f.busca}" autocomplete="off" aria-label="Buscar aluno"></label>
+      ${lista.map(([a, i]) => `<button class="option" data-aluno="${i}" aria-pressed="${f.aluno === i}"><span class="avatar">${iniciais(a.nome)}</span><div><b>${a.nome}</b><small>Matrícula ${a.matricula} · plano ${a.plano.nome}</small></div>${a.bloqueado ? '<span class="pill RECUSADO">Bloqueada</span>' : ''}</button>`).join('') || '<div class="empty">Nenhum aluno encontrado.</div>'}
+    </div>`;
+    const b = $('busca'); b.oninput = e => { f.busca = e.target.value; const pos = e.target.selectionStart; renderSheet(); const nb = $('busca'); nb.focus(); nb.setSelectionRange(pos, pos); };
+    return;
+  }
+  const aluno = ALUNOS[f.aluno];
+  if (f.step === 2) {
+    const vm = valorTipo(aluno, 'mensalidade'), va = valorTipo(aluno, 'anual');
+    s.innerHTML = sheetHead('O que cobrar', true) + stepsBar(2) + `<div class="sheet-body">
+      <p class="note">Cobrança para <b>${aluno.nome}</b> · plano ${aluno.plano.nome}</p>
+      <button class="option" data-tipo="mensalidade" aria-pressed="${f.tipo === 'mensalidade'}"><span class="tx-ico">${ico('calendar')}</span><div><b>Mensalidade ${MES[COMPETENCIA.m]}/${COMPETENCIA.y}</b><small>Vence dia ${aluno.diaVencimento}${aluno.convenio ? ' · convênio empresarial, 15% off' : ''}</small></div><span class="val">${BRL.format(vm.final)}${vm.final !== vm.bruto ? `<small><s>${BRL.format(vm.bruto)}</s></small>` : ''}</span></button>
+      <button class="option" data-tipo="avulsa" aria-pressed="${f.tipo === 'avulsa'}"><span class="tx-ico">${ico('receipt')}</span><div><b>Serviço avulso</b><small>Diária, aula com personal ou matrícula</small></div><span class="val">a partir de ${BRL.format(35)}</span></button>
+      ${f.tipo === 'avulsa' ? `<div class="sub-options">${ITENS.map(it => `<button class="chip" data-item="${it.id}" aria-pressed="${f.item === it.id}">${it.nome} · ${BRL.format(it.preco)}</button>`).join('')}</div>` : ''}
+      <button class="option" data-tipo="anual" aria-pressed="${f.tipo === 'anual'}"><span class="tx-ico">${ico('card')}</span><div><b>Plano anual ${aluno.plano.nome}</b><small>À vista com 10% off ou em até 12x no cartão</small></div><span class="val">${BRL.format(va.final)}<small>à vista</small></span></button>
+    </div><div class="sheet-foot"><button class="btn btn-primary btn-block" data-next="1" ${f.tipo ? '' : 'disabled'}>Continuar</button></div>`;
+    return;
+  }
+  if (f.step === 3) {
+    const aceita = f.meio && meios.get(f.meio).aceitaParcelamento();
+    s.innerHTML = sheetHead('Como pagar', true) + stepsBar(3) + `<div class="sheet-body">
+      ${[...meios.keys()].map(id => { const m = MEIOS_INFO[id]; return `<button class="option" data-meio-sel="${id}" aria-pressed="${f.meio === id}"><span class="tx-ico">${ico(m.ico)}</span><div><b>${m.nome}${aluno.formaPreferida === id ? ' <span class="badge">Preferido</span>' : ''}</b><small>${id === 'cartao' && aluno.tokenCartao ? 'Cartão salvo final ' + aluno.tokenCartao.slice(-4) : id === 'cartao' ? 'Nenhum cartão salvo' : m.desc}</small></div></button>`; }).join('')}
+      ${f.tipo === 'anual' && f.meio ? `<div class="field"><label for="parcelas">Parcelas</label><select id="parcelas" ${aceita ? '' : 'disabled'}>${(aceita ? [1, 2, 3, 6, 10, 12] : [1]).map(p => `<option value="${p}" ${p === f.parcelas ? 'selected' : ''}>${p === 1 ? 'À vista, com 10% de desconto' : p + 'x de ' + BRL.format(round2(aluno.plano.valorAnual / p)) + ' sem juros'}</option>`).join('')}</select>${aceita ? '' : `<span class="note">${MEIOS_INFO[f.meio].nome} não aceita parcelamento.</span>`}</div>` : ''}
+      ${f.meio === 'cartao' ? `<label class="test-toggle"><input type="checkbox" id="recusa" ${f.recusa ? 'checked' : ''}>Modo de teste: simular recusa da operadora</label>` : ''}
+    </div><div class="sheet-foot"><button class="btn btn-primary btn-block" data-next="1" ${f.meio ? '' : 'disabled'}>Continuar</button></div>`;
+    if ($('parcelas')) $('parcelas').onchange = e => { f.parcelas = +e.target.value; };
+    if ($('recusa')) $('recusa').onchange = e => { f.recusa = e.target.checked; };
+    return;
+  }
+  if (f.step === 4) {
+    const p = previa(f);
+    const tipoNome = f.tipo === 'mensalidade' ? 'Mensalidade ' + MES[COMPETENCIA.m] + '/' + COMPETENCIA.y : f.tipo === 'avulsa' ? ITENS.find(i => i.id === f.item).nome : 'Plano anual ' + aluno.plano.nome;
+    const forma = f.tipo === 'anual' ? (f.parcelas > 1 ? f.parcelas + 'x de ' + BRL.format(round2((p.valor || 0) / f.parcelas)) : 'À vista') : 'Parcela única';
+    s.innerHTML = sheetHead('Revisão', true) + stepsBar(4) + `<div class="sheet-body">
+      <div class="summary">
+        <div class="row"><span>Aluno</span><b>${aluno.nome}</b></div>
+        <div class="row"><span>Cobrança</span><b>${tipoNome}</b></div>
+        <div class="row"><span>Pagamento</span><b>${MEIOS_INFO[f.meio].nome}</b></div>
+        <div class="row"><span>Forma</span><b>${forma}</b></div>
+        <div class="row total"><span>Total</span><b class="num">${p.valor == null ? '—' : BRL.format(p.valor)}</b></div>
+      </div>
+      ${aluno.bloqueado ? `<p class="note">${ico('alert', 'style="width:16px;height:16px;vertical-align:-3px"')} A matrícula desta aluna está bloqueada.</p>` : ''}
+    </div><div class="sheet-foot"><button class="btn btn-primary btn-block" id="confirmar">Cobrar ${p.valor == null ? '' : BRL.format(p.valor)}</button></div>`;
+    $('confirmar').onclick = () => executar();
+  }
+}
+
+function executar(meioForcado) {
+  const f = state.flow, aluno = ALUNOS[f.aluno];
+  const meioKey = meioForcado || f.meio;
+  const pedido = { tipo: f.tipo, item: ITENS.find(i => i.id === f.item), parcelas: f.parcelas };
+  const alunoUso = f.recusa && meioKey === 'cartao' ? Object.assign(Object.create(Aluno.prototype), aluno, { tokenCartao: 'tok_recusa_teste' }) : aluno;
+  const tipoCls = TIPOS_INFO[f.tipo].classe, meioCls = MEIOS_INFO[meioKey].classe;
+  state.montagem = montagemHTML(tipoCls, meioCls, aluno, f);
+  let cobranca, trace, comprovante = null, erro = null;
+  try { cobranca = servico.montar(alunoUso, pedido, meioKey); }
+  catch (e) { erro = e; }
+  if (!erro) {
+    trace = new Trace(cobranca);
+    try { comprovante = cobranca.processar(trace); } catch (e) { erro = e; }
+  }
+  state.trace = trace ? trace.eventos : [];
+  state.erroMontagem = !trace && erro ? erro : null;
+  state.mostrados = state.passoAPasso ? 1 : 8;
+  const l = comprovante ? livro.lancamentos.find(x => x.t.id === comprovante.numero()) : null;
+  if (l) l.comprovante = comprovante;
+  state.recibo = { l, erro, aluno, meioKey, novo: true };
+  $('sheet').innerHTML = `<div class="sheet-body" style="align-items:center;padding:56px 20px"><div class="result"><div class="result-ico pend">${ico('clock')}</div><h3>Processando…</h3><p>Falando com ${MEIOS_INFO[meioKey].nome === 'Cartão de crédito' ? 'a operadora do cartão' : MEIOS_INFO[meioKey].nome === 'Boleto' ? 'o banco' : 'o provedor'}</p></div></div>`;
+  renderDev();
+  const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => { if (state.recibo) { renderSheet(); render(); } }, reduz ? 0 : 650);
+}
+
+function montagemHTML(tipoCls, meioCls, aluno, f) {
+  const extra = f.tipo === 'mensalidade' ? `competencia` : f.tipo === 'avulsa' ? `ItemAvulso.${f.item.toUpperCase()}` : `${f.parcelas}`;
+  return `<span class="c">// ServicoCobranca monta a combinação (Bridge)</span>
+<span class="b">MeioPagamento</span> meio = <span class="k">new</span> <span class="b">${meioCls}</span>(…);
+<span class="b">Cobranca</span> c = <span class="k">new</span> ${tipoCls}(
+    ${aluno.nome.split(' ')[0].toLowerCase()}, meio, …, ${extra});
+c.processar();   <span class="c">// Template Method</span>`;
+}
+
+/* ---------- tela de resultado e comprovante ---------- */
+function qrSVG(texto) {
+  let n, dark;
+  if (typeof qrcode === 'function') {
+    const q = qrcode(0, 'M'); q.addData(texto); q.make(); n = q.getModuleCount(); dark = (r, c) => q.isDark(r, c);
   } else {
-    ex.innerHTML = `<p class="note">Competência ${MES[COMPETENCIA.m]}/${COMPETENCIA.y}. O vencimento vem do cadastro do aluno.</p>`;
+    /* sem a biblioteca (offline): desenho ilustrativo, não lê */
+    n = 29; let h = 0; for (const ch of texto) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const finder = (r, c) => [[0, 0], [0, n - 7], [n - 7, 0]].some(([a, b]) => r >= a && r < a + 7 && c >= b && c < b + 7 && (r === a || r === a + 6 || c === b || c === b + 6 || (r > a + 1 && r < a + 5 && c > b + 1 && c < b + 5)));
+    const inFinder = (r, c) => [[0, 0], [0, n - 8], [n - 8, 0]].some(([a, b]) => r >= a && r < a + 8 && c >= b && c < b + 8);
+    dark = (r, c) => inFinder(r, c) ? finder(r, c) : (((h ^ (r * 73856093) ^ (c * 19349663)) >>> 0) % 7) < 3;
   }
-  em.innerHTML = state.meio === 'cartao'
-    ? `<label class="toggle"><input type="checkbox" id="recusa" ${state.recusa ? 'checked' : ''}>Simular cartão recusado pela adquirente</label>`
-    : '';
-  if ($('recusa')) $('recusa').onchange = e => { state.recusa = e.target.checked; };
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (dark(r, c)) d += `M${c} ${r}h1v1h-1z`;
+  return `<svg viewBox="-2 -2 ${n + 4} ${n + 4}" role="img" aria-label="QR Code Pix" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${n + 4}" height="${n + 4}" fill="#FDFCF9"/><path d="${d}" fill="#14222F"/></svg>`;
+}
+function barcodeSVG(linha) {
+  const digs = linha.replace(/\D/g, '');
+  let x = 0, rects = '';
+  for (let i = 0; i < digs.length; i++) { const d = +digs[i]; const w1 = 1 + (d % 3), w2 = 1 + ((d + i) % 2); rects += `<rect x="${x}" y="0" width="${w1}" height="64" fill="currentColor"/>`; x += w1 + w2 + 1; }
+  return `<svg class="barcode" viewBox="0 0 ${x} 64" preserveAspectRatio="none" aria-label="Código de barras do boleto">${rects}</svg>`;
 }
 
-function renderEstimado() {
-  const a = ALUNOS[state.aluno];
-  let v = 0, nota = '';
-  if (state.tipo === 'mensalidade') { v = a.plano.valorMensal; if (a.convenio) { v = round2(v * .85); nota = 'Com 15% de convênio'; } }
-  else if (state.tipo === 'avulsa') { v = ITENS.find(i => i.id === state.item).preco; }
-  else { v = a.plano.valorAnual; if (state.parcelas === 1) { v = round2(v * .9); nota = 'À vista, 10% de desconto'; } else nota = state.parcelas + 'x de ' + BRL.format(round2(v / state.parcelas)); }
-  $('estimado').textContent = BRL.format(v);
-  $('estimado-nota').textContent = nota;
-}
-
-function renderMatriz() {
-  const ms = meios();
-  const head = `<thead><tr><th>Tipo \\ Meio</th>${ms.map(m => `<th class="${m.id === 'debito' ? 'new' : ''}">${m.nome}</th>`).join('')}</tr></thead>`;
-  const body = TIPOS.map(t => `<tr><td><b>${t.nome}</b></td>${ms.map(m => `<td class="cell ${t.id === state.tipo && m.id === state.meio ? 'on' : ''}">${t.nome.replace(' anual', 'Anual')}${m.nome.split(' ')[0].replace('ã', 'a').replace('é', 'e')}</td>`).join('')}</tr>`).join('');
-  $('matriz').innerHTML = head + '<tbody>' + body + '</tbody>';
-  $('c-com').textContent = TIPOS.length + ms.length;
-  $('c-sem').textContent = TIPOS.length * ms.length;
-}
-
-function renderLivro() {
-  const tb = $('livro').querySelector('tbody');
-  tb.innerHTML = livro.lancamentos.map(({ t, r, cobranca }) => `<tr><td class="mono">${t.id}</td><td>${t.aluno.nome}</td><td>${cobranca.rotulo}</td><td>${cobranca.meio.rotulo}</td><td class="num">${BRL.format(t.valor)}</td><td><span class="status ${r.status}">${r.status}</span></td></tr>`).join('');
-  $('livro-vazio').hidden = livro.lancamentos.length > 0;
-}
-
-/* Monta a cobrança como o ServicoCobranca faria: combina qualquer tipo com qualquer meio */
-function criarMeio(id) {
-  switch (id) {
-    case 'pix': return new PagamentoPix();
-    case 'cartao': return new PagamentoCartao(state.recusa);
-    case 'boleto': return new PagamentoBoleto();
-    case 'debito': return new PagamentoDebitoAutomatico();
+function sheetRecibo(rc) {
+  const { l, erro, aluno } = rc;
+  if (erro && !l) {
+    const bloqueio = erro instanceof CobrancaNaoPermitidaException;
+    return sheetHead(bloqueio ? 'Cobrança não permitida' : 'Não foi possível cobrar') + `<div class="sheet-body"><div class="result">
+      <div class="result-ico bad">${ico(bloqueio ? 'alert' : 'x')}</div>
+      <h3>${bloqueio ? 'Matrícula bloqueada' : 'Combinação não aceita'}</h3>
+      <p>${bloqueio ? `${aluno.nome} está com a matrícula ${aluno.matricula} bloqueada. Nenhum pagamento foi tentado e nada entrou no extrato.` : erro.message + '.'}</p>
+    </div></div><div class="sheet-foot"><button class="btn btn-ghost btn-block" data-close="1">Fechar</button></div>`;
   }
-}
-function criarCobranca(meio) {
-  const a = ALUNOS[state.aluno];
-  if (state.tipo === 'mensalidade') return new CobrancaMensalidade(a, meio, livro, notificador, COMPETENCIA);
-  if (state.tipo === 'avulsa') return new CobrancaAvulsa(a, meio, livro, notificador, ITENS.find(i => i.id === state.item));
-  return new CobrancaPlanoAnual(a, meio, livro, notificador, state.parcelas);
-}
-function codigoMontagem(meio) {
-  const tipo = TIPOS.find(t => t.id === state.tipo).classe;
-  const extra = state.tipo === 'mensalidade' ? `competencia /* ${MES[COMPETENCIA.m]}/${COMPETENCIA.y} */` : state.tipo === 'avulsa' ? `ItemAvulso.${state.item.toUpperCase()}` : `${state.parcelas} /* parcelas */`;
-  const primeiro = ALUNOS[state.aluno].nome.split(' ')[0].toLowerCase();
-  return `<span class="c">// ServicoCobranca: o Bridge monta a combinação em tempo de execução</span>
-<span class="b">MeioPagamento</span> meio = <span class="k">new</span> <span class="b">${meio}</span>(…);
-<span class="b">Cobranca</span> cobranca = <span class="k">new</span> ${tipo}(${primeiro}, meio, …, ${extra});
-<span class="b">Comprovante</span> c = cobranca.processar();   <span class="c">// Template Method</span>`;
-}
-
-/* Trace: executa o passo de verdade e registra o que aconteceu */
-class Trace {
-  constructor(cobranca) { this.cobranca = cobranca; this.eventos = []; }
-  step(n, fn, metodos, donoFixo) {
-    const ev = { n, quem: donoFixo ? [{ m: null, dono: donoFixo, padrao: false }] : quemImplementa(this.cobranca, metodos) };
-    try { ev.out = fn(); ev.ok = true; this.eventos.push(ev); }
-    catch (e) { ev.out = e.message; ev.ok = false; ev.erro = e.constructor.name; this.eventos.push(ev); throw e; }
-  }
-}
-
-function stepHTML(ev, estado) {
-  const p = PASSOS[ev.n];
-  let quem = '';
-  if (ev.n === 1 || ev.n === 6) quem = 'Implementado em <b>Cobranca</b>, igual para todo tipo';
-  else if (ev.quem) {
-    quem = ev.quem.map(q => q.m === null
-      ? `Executado por <b>${q.dono}</b>, sem a cobrança saber qual meio é`
-      : q.padrao ? `<code>${q.m}()</code>: padrão de <b>Cobranca</b> (não sobrescrito)` : `<code>${q.m}()</code>: sobrescrito em <b>${q.dono}</b>`).join(' · ');
-  }
-  const tagExtra = ev.quem && ev.quem.length === 1 && ev.quem[0].padrao && p.tag[1] === 'Gancho' ? '<span class="tag hook-default">usou o padrão</span>' : '';
-  return `<li class="step ${estado}${ev.ok === false ? ' failed' : ''}">
-    <span class="n">${ev.n}</span>
-    <div class="body">
-      <div class="top"><span class="name">${p.nome}</span><span class="tag ${p.tag[0]}">${p.tag[1]}</span>${tagExtra}</div>
-      <span class="call">${p.call}</span>
-      ${estado === 'pending' ? '' : `<span class="who">${quem}</span><span class="out">${ev.ok === false ? '<b>' + ev.erro + ':</b> ' : ''}${ev.out}</span>`}
-    </div></li>`;
-}
-
-function renderSteps(eventos, mostrados) {
-  const html = [];
-  for (let n = 1; n <= 8; n++) {
-    const ev = eventos.find(e => e.n === n);
-    if (ev && n <= mostrados) html.push(stepHTML(ev, n === mostrados ? 'done current' : 'done'));
-    else html.push(stepHTML({ n }, 'pending'));
-  }
-  $('steps').innerHTML = html.join('');
-}
-
-function renderResultado(r) {
-  const out = $('resultado');
-  if (!r) { out.innerHTML = ''; return; }
-  if (r.tipo === 'erro-montagem') {
-    out.innerHTML = `<div class="alert bad"><span><b>${r.erro}:</b> ${r.msg}</span><span>O construtor de <code>CobrancaPlanoAnual</code> perguntou ao meio <code>aceitaParcelamento()</code> e recebeu <code>false</code>. A cobrança nem chegou a ser criada.</span></div>`;
-    return;
-  }
-  if (r.tipo === 'erro-validacao') {
-    out.innerHTML = `<div class="alert bad"><span><b>Cobrança interrompida no passo 1.</b> ${r.msg}.</span><span>Nenhum pagamento foi tentado e nada entrou no livro-caixa.</span></div>`;
-    return;
-  }
-  const c = r.comprovante, st = c.status();
+  const s = statusDe(l), c = l.comprovante, mid = meioId(l.cobranca.meio);
+  const cab = s === 'APROVADO' ? ['ok', 'check', rc.novo ? 'Pagamento aprovado' : 'Pagamento confirmado']
+    : s === 'RECUSADO' ? ['bad', 'x', 'Pagamento recusado']
+    : mid === 'pix' ? ['pend', 'pix', 'Pague com Pix'] : mid === 'boleto' ? ['pend', 'barcode', 'Boleto gerado'] : ['pend', 'clock', 'Débito agendado'];
   let extra = '';
-  const parcelado = r.cobranca.parcelas() > 1;
-  if (st === 'RECUSADO') extra = parcelado
-    ? `<div class="alert info"><span>O cartão foi recusado. Pix e boleto não parcelam (<code>aceitaParcelamento()</code> devolve <code>false</code>), então a mesma cobrança parcelada só pode ir para outro cartão. A ponte é só uma referência: basta trocar o meio.</span><div><button class="btn-ghost" id="refazer">Tentar com outro cartão</button></div></div>`
-    : `<div class="alert info"><span>O cartão foi recusado. Como o meio é só uma referência (a ponte), dá para refazer a <b>mesma</b> cobrança com outro meio, sem mudar nenhuma classe de cobrança.</span><div><button class="btn-ghost" id="refazer">Refazer com Pix</button></div></div>`;
-  out.innerHTML = `<div class="receipt">
-      <div class="rh"><div><b>${c.titulo}</b><br><code>${c.constructor.name} · criado por ${r.cobranca.constructor.name}.criarComprovante()</code></div><span class="status ${st}">${st}</span></div>
-      <dl>
-        <dt>Comprovante</dt><dd class="mono">${c.numero()}</dd>
-        <dt>Aluno</dt><dd>${c.transacao.aluno.nome}</dd>
-        ${c.linhas().map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}
-        <dt>Meio</dt><dd>${r.cobranca.meio.rotulo} · ${c.resultado.detalhe}</dd>
-      </dl></div>${extra}`;
-  if ($('refazer')) $('refazer').onclick = () => { if (!parcelado) state.meio = 'pix'; state.recusa = false; renderForm(); cobrar(false); };
+  if (s === 'PENDENTE' && mid === 'pix') {
+    extra = `<div class="qr-box">${qrSVG(l.r.detalhe)}<small>Escaneie no app do banco · expira em <span class="timer" id="timer">30:00</span></small></div>
+      <div class="copy-field"><code>${l.r.detalhe}</code><button class="btn btn-ghost" data-copy="${l.r.detalhe}">${ico('copy')}Copiar</button></div>
+      <button class="btn btn-dark btn-block" data-confirmar="${l.t.id}">Simular pagamento recebido</button>`;
+  } else if (s === 'PENDENTE' && mid === 'boleto') {
+    extra = `<div class="qr-box" style="width:100%;color:#14222F">${barcodeSVG(l.r.detalhe)}<small>Vencimento ${DATA(l.t.vencimento)}</small></div>
+      <div class="copy-field"><code>${l.r.detalhe}</code><button class="btn btn-ghost" data-copy="${l.r.detalhe.replace(/\D/g, '')}">${ico('copy')}Copiar</button></div>
+      <button class="btn btn-dark btn-block" data-confirmar="${l.t.id}">Simular compensação do boleto</button>`;
+  } else if (s === 'RECUSADO') {
+    const parcelado = l.cobranca.parcelas() > 1;
+    extra = `<p class="note">${l.r.detalhe}.</p>${rc.novo ? `<button class="btn btn-primary btn-block" data-retry="${parcelado ? 'cartao' : 'pix'}">${parcelado ? 'Tentar com outro cartão' : 'Cobrar a mesma conta com Pix'}</button>` : ''}`;
+  }
+  const linhas = [['Aluno', `${l.t.aluno.nome} · ${l.t.aluno.matricula}`], ['Cobrança', l.cobranca.rotulo], ['Pagamento', MEIOS_INFO[mid].nome + (l.t.parcelas > 1 ? ` em ${l.t.parcelas}x` : '')], ...(c ? c.linhas() : []), ['Transação', l.t.id], ...(l.r.idExterno && mid !== 'boleto' ? [['ID no provedor', l.r.idExterno.length > 24 ? l.r.idExterno.slice(0, 24) + '…' : l.r.idExterno]] : []), ['Data', DATA(l.quando) + ' às ' + HORA(l.quando)]];
+  return sheetHead(c ? c.titulo : 'Comprovante') + `<div class="sheet-body"><div class="result">
+      <div class="result-ico ${cab[0]}">${ico(cab[1])}</div>
+      <h3>${cab[2]}</h3>
+      <div class="amount">${BRL.format(l.t.valor)}</div>
+      ${extra}
+      <div class="summary receipt-rows">${linhas.map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+      ${c ? `<div class="made-by dev-only">Comprovante criado por ${l.cobranca.constructor.name}.criarComprovante() → ${c.constructor.name}</div>` : ''}
+    </div></div>
+    <div class="sheet-foot"><button class="btn btn-ghost btn-block" data-close="1">Fechar</button><button class="btn btn-primary btn-block" data-new="1">Nova cobrança</button></div>`;
 }
 
-function setBusy(busy) { $('cobrar').disabled = busy; }
+let timerInt = null;
+function iniciarTimer() {
+  clearInterval(timerInt);
+  const el = $('timer'); if (!el) return;
+  const fim = Date.now() + 30 * 60 * 1000;
+  timerInt = setInterval(() => { const t = $('timer'); if (!t) { clearInterval(timerInt); return; } const s = Math.max(0, Math.round((fim - Date.now()) / 1000)); t.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000);
+}
+const _renderSheet = renderSheet;
+renderSheet = function () { _renderSheet(); iniciarTimer(); };
 
-function cobrar(instantaneo) {
-  if (replay) { clearTimeout(replay.timer); replay = null; }
-  $('proximo').hidden = true;
-  $('aviso').innerHTML = '';
-  const meioDef = meios().find(m => m.id === state.meio);
-  $('montagem').innerHTML = codigoMontagem(meioDef.classe);
-  renderResultado(null);
-  let cobranca;
-  try { cobranca = criarCobranca(criarMeio(state.meio)); }
-  catch (e) {
-    renderSteps([], 0);
-    $('trace-status').textContent = 'Falhou ao montar';
-    renderResultado({ tipo: 'erro-montagem', erro: e.constructor.name, msg: e.message });
+/* =====================================================================
+   PAINEL "POR DENTRO"
+   ===================================================================== */
+function renderDev() {
+  const body = $('devBody');
+  const legenda = `<div class="legend"><span class="tag fixo">Fixo</span><span class="tag tm">Template Method</span><span class="tag br">Bridge</span><span class="tag fm">Factory Method</span></div>`;
+  if (!state.trace || (!state.trace.length && !state.erroMontagem)) {
+    body.innerHTML = legenda + `<div class="empty">Faça uma cobrança para ver os 8 passos de <code>processar()</code> acontecendo aqui.</div>
+      <p class="note">As telas usam as mesmas classes do repositório Java: <code>Cobranca</code> conduz o fluxo (Template Method), delega o pagamento a um <code>MeioPagamento</code> (Bridge) e cada subclasse cria o seu comprovante (Factory Method).</p>`;
     return;
   }
-  const trace = new Trace(cobranca);
-  let comprovante = null, falha = null;
-  try { comprovante = cobranca.processar(trace); }
-  catch (e) { falha = e; }
-  const total = trace.eventos.length;
-  const final = () => {
-    renderLivro();
-    $('trace-status').textContent = falha ? 'Interrompido no passo ' + total : 'Concluído · 8 de 8 passos';
-    renderResultado(falha ? { tipo: 'erro-validacao', msg: falha.message } : { tipo: 'ok', comprovante, cobranca });
-    setBusy(false); $('proximo').hidden = true;
-  };
-  replay = { mostrados: 0, total, eventos: trace.eventos, final };
-  const avancar = () => {
-    replay.mostrados++;
-    renderSteps(replay.eventos, replay.mostrados);
-    $('trace-status').textContent = 'Passo ' + replay.mostrados + ' de 8';
-    if (replay.mostrados >= replay.total) { replay.final(); replay = null; return false; }
-    return true;
-  };
-  if (state.passo) { avancar(); if (replay) { $('proximo').hidden = false; $('proximo').onclick = () => { avancar(); }; } }
-  else {
-    const reduz = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduz || instantaneo === true) { while (replay && avancar()); }
-    else { const tick = () => { if (replay && avancar()) replay.timer = setTimeout(tick, 380); }; tick(); }
+  const ev = state.trace, total = ev.length, falhou = ev.some(e => !e.ok);
+  const status = state.erroMontagem ? 'Falhou ao montar' : state.mostrados < total ? `Passo ${state.mostrados} de 8` : falhou ? `Interrompido no passo ${total}` : 'Concluído · 8 de 8';
+  const passos = [];
+  for (let n = 1; n <= 8; n++) {
+    const e = ev.find(x => x.n === n), p = PASSOS[n];
+    const visivel = e && n <= state.mostrados;
+    let quem = '';
+    if (visivel) {
+      if (n === 1 || n === 6) quem = 'Em <b>Cobranca</b>, igual para todo tipo';
+      else if (e.quem) quem = e.quem.map(q => q.m === null ? `Executado por <b>${q.dono}</b>, sem a cobrança saber qual meio é` : q.padrao ? `<code>${q.m}()</code>: padrão de <b>Cobranca</b>` : `<code>${q.m}()</code>: sobrescrito em <b>${q.dono}</b>`).join(' · ');
+    }
+    const usouPadrao = visivel && e.quem && e.quem.length === 1 && e.quem[0].padrao && p[2] === 'Gancho';
+    passos.push(`<li class="dstep ${visivel ? 'done' : 'pending'}${visivel && n === state.mostrados && state.mostrados < 8 && !falhou ? ' current' : ''}${visivel && !e.ok ? ' failed' : ''}">
+      <span class="n">${n}</span><div class="b"><span class="t">${p[0]}<span class="tag ${p[1]}">${p[2]}</span>${usouPadrao ? '<span class="tag padrao">usou o padrão</span>' : ''}</span>
+      <span class="call">${p[3]}</span>${visivel ? `<span class="who">${quem}</span><span class="out">${!e.ok ? '<b>' + e.erro + ':</b> ' : ''}${e.out}</span>` : ''}</div></li>`);
   }
+  const avancavel = state.passoAPasso && state.mostrados < total;
+  body.innerHTML = legenda + `<div class="code">${state.montagem}</div>
+    ${state.erroMontagem ? `<div class="dstep failed"><span class="n">!</span><div class="b"><span class="t">Construtor recusou a combinação</span><span class="out"><b>${state.erroMontagem.constructor.name}:</b> ${state.erroMontagem.message}</span><span class="who"><code>CobrancaPlanoAnual</code> perguntou <code>meio.aceitaParcelamento()</code> e recebeu <code>false</code></span></div></div>` : ''}
+    <div class="dev-ctrl"><span class="dev-status">${status}</span></div>
+    <ol class="dsteps">${passos.join('')}</ol>
+    <div class="dev-ctrl">
+      <button class="btn btn-ghost" id="devReplay">${ico('back', 'style="transform:scaleX(-1)"')}Ver passo a passo</button>
+      ${avancavel ? `<button class="btn btn-dark" id="devNext">Próximo passo</button>` : ''}
+    </div>`;
+  const r = $('devReplay'); if (r) r.onclick = () => { state.passoAPasso = true; state.mostrados = 1; renderDev(); };
+  const nx = $('devNext'); if (nx) nx.onclick = () => { state.mostrados++; if (state.mostrados >= total) state.passoAPasso = false; renderDev(); };
+}
+function abrirDev(abrir) {
+  $('dev').hidden = !abrir;
+  document.body.classList.toggle('dev-open', abrir);
+  if (abrir) renderDev();
 }
 
-/* eventos */
-$('aluno').onchange = e => { state.aluno = +e.target.value; renderInfo(); renderEstimado(); };
-$('tipos').onchange = e => { state.tipo = e.target.value; renderExtra(); renderEstimado(); renderMatriz(); };
-$('meios').onchange = e => { state.meio = e.target.value; renderExtra(); renderMatriz(); };
-$('passo').onchange = e => { state.passo = e.target.checked; };
-$('debito').onchange = e => { state.debito = e.target.checked; if (!state.debito && state.meio === 'debito') state.meio = 'cartao'; radioGroup($('meios'), 'meio', meios(), state.meio); renderExtra(); renderMatriz(); };
-$('cobrar').onclick = () => cobrar(false);
+/* =====================================================================
+   EVENTOS
+   ===================================================================== */
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, [data-tx]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.view) return go(d.view);
+  if (d.new) return abrirFluxo(null);
+  if (d.cobrar != null) return abrirFluxo(+d.cobrar);
+  if (d.filtro) { state.filtro = d.filtro; return render(); }
+  if (d.tx) { const l = livro.lancamentos.find(x => x.t.id === d.tx); state.flow = null; state.recibo = { l, aluno: l.t.aluno, novo: false }; $('overlay').hidden = false; return renderSheet(); }
+  if (d.close) return fecharSheet();
+  if (d.copy) return copiar(d.copy);
+  if (d.confirmar) { const l = livro.lancamentos.find(x => x.t.id === d.confirmar); l.confirmado = true; state.recibo.novo = false; toast('Pagamento recebido de ' + l.t.aluno.nome.split(' ')[0]); renderSheet(); return render(); }
+  if (d.retry) { const f = state.flow; f.meio = d.retry; f.recusa = false; return executar(d.retry); }
+  if (t.id === 'runAgenda') {
+    const antes = livro.lancamentos.length;
+    const r = agendador.executar(10);
+    for (const c of r.comprovantes) { const l = livro.lancamentos.find(x => x.t.id === c.numero()); if (l) l.comprovante = c; }
+    toast(`${r.comprovantes.length} cobrança${r.comprovantes.length === 1 ? '' : 's'} gerada${r.comprovantes.length === 1 ? '' : 's'}${r.ignorados.length ? ' · ' + r.ignorados.join(', ') + ' ignorada (bloqueada)' : ''}`);
+    return render();
+  }
+  if (t.id === 'devToggle') return abrirDev(true);
+  if (t.id === 'devClose') return abrirDev(false);
+  const f = state.flow; if (!f) return;
+  if (d.back) { f.step = Math.max(1, f.step - 1); return renderSheet(); }
+  if (d.aluno != null) { f.aluno = +d.aluno; f.meio = ALUNOS[f.aluno].formaPreferida; if (!meios.has(f.meio)) f.meio = null; f.step = 2; return renderSheet(); }
+  if (d.tipo) { f.tipo = d.tipo; if (f.tipo !== 'anual') f.parcelas = 1; return renderSheet(); }
+  if (d.item) { f.item = d.item; return renderSheet(); }
+  if (d.meioSel) { f.meio = d.meioSel; if (!meios.get(f.meio).aceitaParcelamento()) f.parcelas = 1; return renderSheet(); }
+  if (d.next) { f.step++; return renderSheet(); }
+});
+document.addEventListener('change', e => {
+  const m = e.target.dataset && e.target.dataset.meio;
+  if (!m) return;
+  if (e.target.checked) { meios.set(m, new PagamentoDebitoAutomatico()); toast('Débito automático ativado. Nenhuma regra de cobrança mudou.'); }
+  else { meios.delete(m); toast('Débito automático desativado'); }
+  render();
+});
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) fecharSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('overlay').hidden) fecharSheet(); else if (!$('dev').hidden) abrirDev(false); } });
 
-/* estado inicial: Ana, mensalidade no cartão, já processada como exemplo */
-renderForm();
-renderSteps([], 0);
-renderLivro();
-cobrar(true);
+$('newTop').innerHTML = ico('plus') + 'Nova cobrança';
+$('newTop').dataset.new = '1';
+$('devClose').innerHTML = ico('x');
+$('devToggle').innerHTML = ico('code') + 'Por dentro';
+
+/* movimentos de exemplo do dia, processados pelas próprias classes */
+(function exemplos() {
+  const bruno = ALUNOS[1], ana = ALUNOS[0], elisa = ALUNOS[4];
+  const regs = [
+    servico.montar(elisa, { tipo: 'avulsa', item: ITENS[2] }, 'boleto'),
+    servico.montar(bruno, { tipo: 'avulsa', item: ITENS[0] }, 'pix'),
+    servico.montar(ana, { tipo: 'avulsa', item: ITENS[1] }, 'cartao'),
+  ];
+  const horas = [8, 9, 11];
+  regs.forEach((c, i) => { const comp = c.processar(); const l = livro.lancamentos[0]; l.comprovante = comp; const q = new Date(); q.setHours(horas[i], 12 + i * 17, 0, 0); l.quando = q; });
+  livro.lancamentos.find(l => l.t.aluno === bruno).confirmado = true;
+})();
+render();
+renderDev();
 </script>
 
 </html>
