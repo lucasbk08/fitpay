@@ -46,7 +46,13 @@ O protótipo tem front-end e back-end separados:
 - **Back-end** ([`servidor/`](servidor)): uma API REST em Java que usa as classes do núcleo acima, sem copiá-las. Cada cobrança chama o `processar()` real, e a API devolve o lançamento, o comprovante e quem executou cada um dos 8 passos.
 - **Front-end** ([`docs/prototipo-web.html`](docs/prototipo-web.html)): a tela do app de cobrança (nova cobrança em etapas, Pix com QR Code, cartão, boleto, extrato, agendador e o painel **Por dentro** com os 8 passos). Ela só conversa com a API por JSON.
 
-Para rodar:
+O jeito mais rápido é o script da raiz, que compila, sobe a API e abre a tela no navegador (no Windows, use o Git Bash):
+
+```bash
+./start.sh          # ou ./start.sh 8081 para outra porta; Ctrl+C para parar
+```
+
+Com Maven:
 
 ```bash
 cd servidor
