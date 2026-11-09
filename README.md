@@ -39,7 +39,37 @@ javac -encoding UTF-8 -d out (Get-ChildItem -Recurse src/main/java -Filter *.jav
 java -cp out br.com.fitpay.app.FitPayApp
 ```
 
-Também há um protótipo visual em [`docs/prototipo-web.html`](docs/prototipo-web.html): abra no navegador e use o FitPay como um app de cobrança (nova cobrança em etapas, Pix com QR Code, cartão, boleto, extrato e agendador). O botão **Por dentro** abre um painel com os 8 passos de `processar()`, um de cada vez. A tela repete em JavaScript a mesma lógica destas classes Java.
+### Protótipo web (front-end + back-end Java)
+
+O protótipo tem front-end e back-end separados:
+
+- **Back-end** ([`servidor/`](servidor)): uma API REST em Java que usa as classes do núcleo acima, sem copiá-las. Cada cobrança chama o `processar()` real, e a API devolve o lançamento, o comprovante e quem executou cada um dos 8 passos.
+- **Front-end** ([`docs/prototipo-web.html`](docs/prototipo-web.html)): a tela do app de cobrança (nova cobrança em etapas, Pix com QR Code, cartão, boleto, extrato, agendador e o painel **Por dentro** com os 8 passos). Ela só conversa com a API por JSON.
+
+Para rodar:
+
+```bash
+cd servidor
+mvn compile exec:java      # depois abra http://localhost:8080
+```
+
+Sem Maven, a partir da raiz do projeto:
+
+```bash
+javac -encoding UTF-8 -d out $(find src/main/java servidor/src/main/java -name "*.java")
+java -cp out br.com.fitpay.servidor.ServidorFitPay
+```
+
+O selo no topo da tela mostra **Back-end Java** quando a API está no ar. Se a página for aberta sem o servidor, ela entra em **Modo offline** e usa uma cópia das classes em JavaScript, com o mesmo contrato da API.
+
+| Rota | O que faz |
+| --- | --- |
+| `GET /api/estado` | alunos, meios de pagamento, itens e extrato |
+| `GET /api/previa` | valor calculado pela própria subclasse de `Cobranca` |
+| `POST /api/cobrancas` | monta a cobrança e chama `processar()` |
+| `POST /api/lancamentos/{id}/confirmacao` | simula a confirmação de Pix ou boleto |
+| `POST /api/agendador` | roda o `Agendador` do dia |
+| `POST /api/meios/debito` | liga ou desliga o débito automático (um `MeioPagamento` novo) |
 
 ## Onde cada padrão está no código
 
