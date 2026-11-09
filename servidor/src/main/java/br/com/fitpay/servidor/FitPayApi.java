@@ -133,11 +133,20 @@ public final class FitPayApi {
             itens.add(obj("id", i.name().toLowerCase(Locale.ROOT), "nome", i.descricao(), "preco", i.preco()));
         }
         List<Object> listaAlunos = new ArrayList<>();
-        for (Aluno a : alunos) listaAlunos.add(dto(a));
+        for (Aluno a : alunos) {
+            Map<String, Object> d = dto(a);
+            d.put("valorMensalidade", previa(new Pedido(a.matricula(), "mensalidade", null, 1, "cartao", false)).get("valor"));
+            listaAlunos.add(d);
+        }
+        List<Object> listaMeios = new ArrayList<>();
+        for (Map.Entry<String, MeioPagamento> m : meios.entrySet()) {
+            listaMeios.add(obj("id", m.getKey(), "classe", m.getValue().getClass().getSimpleName(),
+                    "aceitaParcelamento", m.getValue().aceitaParcelamento()));
+        }
         return obj("backend", "java",
                 "competencia", obj("ano", competencia.getYear(), "mes", competencia.getMonthValue(), "rotulo", rotulo(competencia)),
                 "alunos", listaAlunos,
-                "meios", new ArrayList<>(meios.keySet()),
+                "meios", listaMeios,
                 "itens", itens,
                 "lancamentos", lancamentos);
     }
