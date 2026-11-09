@@ -248,6 +248,7 @@ body.dev-open .dev-toggle { display: none; }
 .dev-head h2 { font-family: var(--f-display); font-size: 18px; margin: 0; flex: 1; }
 .dev-head h2 code { font-family: var(--f-mono); font-size: 16px; }
 .dev-body { overflow: auto; padding: 4px 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.dev-body > * { flex-shrink: 0; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag { font-size: 10.5px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
 .tag.fixo { background: var(--surface-2); color: var(--muted); }
@@ -304,6 +305,10 @@ body.dev-open .dev-toggle { display: none; }
   .dev { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.conn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.conn.on { color: var(--good); }
+.conn .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+@media (max-width: 640px) { .conn { font-size: 11px; padding: 3px 8px; } }
 </style>
 
 <div class="app">
@@ -316,6 +321,7 @@ body.dev-open .dev-toggle { display: none; }
     <header class="top">
       <div><h1 id="title">Início</h1><div class="sub" id="subtitle"></div></div>
       <div class="top-actions">
+        <span class="conn" id="conn" title=""></span>
         <button class="btn btn-primary new-btn" id="newTop"></button>
         <span class="avatar" title="Recepção">RC</span>
       </div>
@@ -337,224 +343,309 @@ body.dev-open .dev-toggle { display: none; }
 <script>
 'use strict';
 /* =====================================================================
-   DOMÍNIO: as mesmas classes do repositório Java (lucasbk08/fitpay)
+   O FitPay tem front-end e back-end separados.
+   - Back-end: API REST em Java (pasta servidor/ do repositório), que usa
+     as classes do núcleo e chama o processar() real.
+   - Front-end: esta tela. Ela só conversa com a API, pelo contrato JSON
+     de criarApiJava(). Se o back-end não estiver no ar, usa criarApiLocal(),
+     que segue o mesmo contrato com uma cópia das classes em JavaScript.
    ===================================================================== */
+
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const DATA = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const HORA = d => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const round2 = v => Math.round(v * 100) / 100;
+const num = v => typeof v === 'number' ? v : parseFloat(v);
+/* "2026-11-10" vira data local (sem o deslocamento de fuso de new Date("2026-11-10")) */
+const dataLocal = s => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+const pad = n => String(n).padStart(2, '0');
+const isoData = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const isoLocal = d => isoData(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 function hoje() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
-let seq = 1040;
 
-class Plano { constructor(nome, valorMensal, valorAnual) { this.nome = nome; this.valorMensal = valorMensal; this.valorAnual = valorAnual; } }
-class Aluno {
-  constructor(matricula, nome, plano, convenio, dia, bloqueado, forma, token) {
-    Object.assign(this, { matricula, nome, plano, convenio, diaVencimento: dia, bloqueado, formaPreferida: forma, tokenCartao: token });
+/* =====================================================================
+   API JAVA: o front-end chama o back-end por HTTP
+   ===================================================================== */
+function criarApiJava(base) {
+  async function checar(r) {
+    const j = await r.json().catch(() => null);
+    if (!r.ok) throw new Error((j && j.erro) || ('HTTP ' + r.status));
+    return j;
   }
-  temConvenioEmpresa() { return this.convenio; }
-  estaBloqueado() { return this.bloqueado; }
-}
-class Transacao {
-  static nova(aluno, valor, parcelas, vencimento) { const t = new Transacao(); t.id = 'TX-' + (++seq); t.aluno = aluno; t.valor = round2(valor); t.parcelas = parcelas; t.vencimento = vencimento; return t; }
-}
-class ResultadoPagamento {
-  constructor(status, idExterno, detalhe) { this.status = status; this.idExterno = idExterno; this.detalhe = detalhe; }
-  static aprovado(id) { return new ResultadoPagamento('APROVADO', id, 'Pagamento aprovado'); }
-  static pendente(id, instrucao) { return new ResultadoPagamento('PENDENTE', id, instrucao); }
-  static recusado(motivo) { return new ResultadoPagamento('RECUSADO', null, motivo); }
-}
-class CobrancaNaoPermitidaException extends Error { constructor(matricula) { super('Matrícula ' + matricula + ' bloqueada: cobrança não permitida'); } }
-class IllegalArgumentException extends Error {}
-
-/* ---------- Bridge: Implementor e ConcreteImplementors ---------- */
-class MeioPagamento { executar(t) { throw new Error('abstrato'); } estornar(id) {} aceitaParcelamento() { return false; } }
-class PagamentoPix extends MeioPagamento {
-  executar(t) {
-    const txid = 'fitpay' + t.id.replace(/\D/g, '') + 'pix';
-    const v = t.valor.toFixed(2);
-    const copiaECola = '00020126580014br.gov.bcb.pix0136' + txid + '520400005303986540' + v.length + v + '5802BR5906FITPAY6009SAO PAULO';
-    return ResultadoPagamento.pendente(txid, copiaECola);
-  }
-}
-class PagamentoCartao extends MeioPagamento {
-  executar(t) {
-    if (!t.aluno.tokenCartao) return ResultadoPagamento.recusado('Aluno sem cartão cadastrado');
-    if (t.aluno.tokenCartao.startsWith('tok_recusa')) return ResultadoPagamento.recusado('Saldo insuficiente');
-    return ResultadoPagamento.aprovado(String(480000 + seq));
-  }
-  aceitaParcelamento() { return true; }
-}
-class PagamentoBoleto extends MeioPagamento {
-  executar(t) {
-    const nossoNumero = String(20260000 + seq);
-    const centavos = String(Math.round(t.valor * 100)).padStart(10, '0');
-    const linha = '34191.09008 ' + nossoNumero.slice(0, 5) + '.' + nossoNumero.slice(5) + ' 00000.000000 1 ' + centavos;
-    return ResultadoPagamento.pendente(nossoNumero, linha);
-  }
-}
-class PagamentoDebitoAutomatico extends MeioPagamento {
-  executar(t) { return ResultadoPagamento.pendente('DA' + seq, 'Débito agendado para ' + DATA(t.vencimento)); }
+  const params = p => ({ aluno: p.aluno, tipo: p.tipo, item: p.item || '', parcelas: p.parcelas || 1, meio: p.meio || '', simularRecusa: !!p.simularRecusa });
+  const get = (path, q) => fetch(base + path + (q ? '?' + new URLSearchParams(q) : '')).then(checar);
+  const post = (path, q) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(q || {}) }).then(checar);
+  return {
+    tipo: 'java',
+    endereco: base || location.origin,
+    estado: () => get('/api/estado'),
+    previa: p => get('/api/previa', params(p)),
+    cobrar: p => post('/api/cobrancas', params(p)),
+    confirmar: id => post('/api/lancamentos/' + encodeURIComponent(id) + '/confirmacao'),
+    agendar: dia => post('/api/agendador', { dia }),
+    definirDebito: ativo => post('/api/meios/debito', { ativo }),
+  };
 }
 
-/* ---------- Factory Method: Product e ConcreteProducts ---------- */
-class Comprovante { constructor(t, r) { this.transacao = t; this.resultado = r; } numero() { return this.transacao.id; } status() { return this.resultado.status; } }
-class ReciboMensalidade extends Comprovante {
-  constructor(t, r, competencia, proximo) { super(t, r); this.competencia = competencia; this.proximo = proximo; }
-  get titulo() { return 'Recibo de mensalidade'; }
-  renderizar() { return 'Mensalidade ' + String(this.competencia.m + 1).padStart(2, '0') + '/' + this.competencia.y + ' de R$ ' + this.transacao.valor.toFixed(2); }
-  linhas() { return [['Competência', MES[this.competencia.m] + '/' + this.competencia.y], ['Vencimento', DATA(this.transacao.vencimento)], ['Próximo vencimento', DATA(this.proximo)]]; }
-}
-class ReciboAvulso extends Comprovante {
-  constructor(t, r, item) { super(t, r); this.item = item; }
-  get titulo() { return 'Recibo avulso'; }
-  renderizar() { return this.item.nome + ' de R$ ' + this.transacao.valor.toFixed(2); }
-  linhas() { return [['Item', this.item.nome], ['Vencimento', DATA(this.transacao.vencimento)]]; }
-}
-class ExtratoParcelamento extends Comprovante {
-  constructor(t, r, parcelas) { super(t, r); this.parcelas = parcelas; }
-  get titulo() { return 'Extrato do plano anual'; }
-  renderizar() { return 'Plano anual em ' + this.parcelas + 'x de R$ ' + round2(this.transacao.valor / this.parcelas).toFixed(2); }
-  linhas() {
-    const p = this.parcelas;
-    return [['Forma', p === 1 ? 'À vista, com 10% de desconto' : p + 'x de ' + BRL.format(round2(this.transacao.valor / p))], ['1º vencimento', DATA(this.transacao.vencimento)]];
+async function detectarApi() {
+  const bases = [];
+  if (location.protocol === 'http:' || location.protocol === 'https:') bases.push('');
+  if (location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') bases.push('http://localhost:8080');
+  for (const base of [...new Set(bases)]) {
+    try {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 1500);
+      const r = await fetch(base + '/api/estado', { signal: ctl.signal });
+      clearTimeout(t);
+      if (r.ok) { const j = await r.json(); if (j && j.backend === 'java') return criarApiJava(base); }
+    } catch (e) { /* sem back-end neste endereço */ }
   }
-}
-
-/* ---------- Template Method: AbstractClass ---------- */
-class Cobranca {
-  constructor(aluno, meio, livroCaixa, notificador) {
-    if (new.target === Cobranca) throw new Error('Cobranca é abstrata');
-    this.aluno = aluno; this.meio = meio; this.livroCaixa = livroCaixa; this.notificador = notificador;
-  }
-  /* Template Method: a ordem é fixa (no Java, declarado final) */
-  processar(trace) {
-    trace = trace || Trace.nulo;
-    trace.step(1, () => { this.validarAluno(); return 'Aluno liberado para cobrança'; }, 'validarAluno');
-    let valor;
-    trace.step(2, () => { valor = this.calcularValor(); return 'Valor bruto: ' + BRL.format(valor); }, 'calcularValor');
-    trace.step(3, () => { const a = valor; valor = this.aplicarDescontos(valor); return a === valor ? 'Sem desconto: ' + BRL.format(valor) : BRL.format(a) + ' → ' + BRL.format(valor) + ' (' + this.motivoDesconto() + ')'; }, 'aplicarDescontos');
-    let t;
-    trace.step(4, () => { t = Transacao.nova(this.aluno, valor, this.parcelas(), this.vencimento()); return t.id + ' · ' + (t.parcelas > 1 ? t.parcelas + ' parcelas' : 'parcela única') + ' · vence ' + DATA(t.vencimento); }, ['parcelas', 'vencimento']);
-    let r;
-    trace.step(5, () => { r = this.meio.executar(t); return r.status + (r.status === 'RECUSADO' ? ' · ' + r.detalhe : r.idExterno ? ' · ' + r.idExterno : ''); }, null, this.meio.constructor.name);
-    trace.step(6, () => { this.livroCaixa.registrar(t, r, this); return 'Lançamento ' + t.id + ' registrado'; }, null);
-    let c;
-    trace.step(7, () => { c = this.criarComprovante(t, r); return 'new ' + c.constructor.name + '(…)'; }, 'criarComprovante');
-    trace.step(8, () => { if (this.deveNotificar(r)) { this.notificador.enviar(this.aluno, c); return 'Comprovante enviado para ' + this.aluno.nome.split(' ')[0]; } return 'Notificação dispensada'; }, 'deveNotificar');
-    return c;
-  }
-  validarAluno() { if (this.aluno.estaBloqueado()) throw new CobrancaNaoPermitidaException(this.aluno.matricula); }
-  calcularValor() { throw new Error('abstrato'); }
-  criarComprovante(t, r) { throw new Error('abstrato'); }
-  aplicarDescontos(v) { return v; }
-  motivoDesconto() { return ''; }
-  parcelas() { return 1; }
-  vencimento() { const d = hoje(); d.setDate(d.getDate() + 3); return d; }
-  deveNotificar(r) { return true; }
-}
-class CobrancaMensalidade extends Cobranca {
-  constructor(aluno, meio, livro, notif, plano, competencia) { super(aluno, meio, livro, notif); this.plano = plano; this.competencia = competencia; }
-  get rotulo() { return 'Mensalidade ' + MES[this.competencia.m] + '/' + this.competencia.y; }
-  calcularValor() { return this.plano.valorMensal; }
-  aplicarDescontos(v) { return this.aluno.temConvenioEmpresa() ? round2(v * 0.85) : v; }
-  motivoDesconto() { return 'convênio empresarial, 15%'; }
-  vencimento() { return new Date(this.competencia.y, this.competencia.m, this.aluno.diaVencimento); }
-  criarComprovante(t, r) { const p = this.vencimento(); p.setMonth(p.getMonth() + 1); return new ReciboMensalidade(t, r, this.competencia, p); }
-}
-class CobrancaAvulsa extends Cobranca {
-  constructor(aluno, meio, livro, notif, item) { super(aluno, meio, livro, notif); this.item = item; }
-  get rotulo() { return this.item.nome; }
-  calcularValor() { return this.item.preco; }
-  vencimento() { return hoje(); }
-  criarComprovante(t, r) { return new ReciboAvulso(t, r, this.item); }
-}
-class CobrancaPlanoAnual extends Cobranca {
-  constructor(aluno, meio, livro, notif, plano, parcelas) {
-    super(aluno, meio, livro, notif);
-    if (parcelas > 1 && !meio.aceitaParcelamento()) throw new IllegalArgumentException('Parcelamento só é aceito no cartão');
-    this.plano = plano; this._parcelas = parcelas;
-  }
-  get rotulo() { return 'Plano anual ' + this.plano.nome + (this._parcelas > 1 ? ' em ' + this._parcelas + 'x' : ' à vista'); }
-  calcularValor() { return this.plano.valorAnual; }
-  aplicarDescontos(v) { return this._parcelas === 1 ? round2(v * 0.90) : v; }
-  motivoDesconto() { return 'à vista, 10%'; }
-  parcelas() { return this._parcelas; }
-  criarComprovante(t, r) { return new ExtratoParcelamento(t, r, this._parcelas); }
-}
-
-/* ---------- colaboradores injetados (sem Singleton) ---------- */
-class LivroCaixa {
-  constructor() { this.lancamentos = []; }
-  registrar(t, r, cobranca) { this.lancamentos.unshift({ t, r, cobranca, quando: new Date(), confirmado: false, comprovante: null }); }
-}
-class Notificador { constructor() { this.enviados = []; } enviar(aluno, c) { this.enviados.push({ aluno, c }); } }
-
-/* ---------- cliente: ServicoCobranca e Agendador ---------- */
-class ServicoCobranca {
-  constructor(meios, livro, notificador) { this.meios = meios; this.livro = livro; this.notificador = notificador; }
-  montar(aluno, pedido, forma) {
-    const meio = this.meios.get(forma);
-    if (pedido.tipo === 'mensalidade') return new CobrancaMensalidade(aluno, meio, this.livro, this.notificador, aluno.plano, COMPETENCIA);
-    if (pedido.tipo === 'avulsa') return new CobrancaAvulsa(aluno, meio, this.livro, this.notificador, pedido.item);
-    return new CobrancaPlanoAnual(aluno, meio, this.livro, this.notificador, aluno.plano, pedido.parcelas);
-  }
-}
-class Agendador {
-  constructor(servico, alunos) { this.servico = servico; this.alunos = alunos; }
-  executar(dia) {
-    const comprovantes = [], ignorados = [];
-    for (const aluno of this.alunos) {
-      if (aluno.diaVencimento !== dia) continue;
-      try { comprovantes.push(this.servico.montar(aluno, { tipo: 'mensalidade' }, aluno.formaPreferida).processar()); }
-      catch (e) { if (e instanceof CobrancaNaoPermitidaException) ignorados.push(aluno.nome); else throw e; }
-    }
-    return { comprovantes, ignorados };
-  }
-}
-
-/* Registra cada passo do template de verdade, para o painel "Por dentro" */
-class Trace {
-  constructor(cobranca) { this.cobranca = cobranca; this.eventos = []; }
-  step(n, fn, metodos, donoFixo) {
-    const ev = { n, quem: donoFixo ? [{ m: null, dono: donoFixo }] : quemImplementa(this.cobranca, metodos) };
-    try { ev.out = fn(); ev.ok = true; this.eventos.push(ev); }
-    catch (e) { ev.out = e.message; ev.ok = false; ev.erro = e.constructor.name; this.eventos.push(ev); throw e; }
-  }
-}
-Trace.nulo = { step(n, fn) { fn(); } };
-function quemImplementa(obj, metodos) {
-  if (!metodos) return null;
-  return (Array.isArray(metodos) ? metodos : [metodos]).map(m => {
-    const dono = Object.getPrototypeOf(obj).hasOwnProperty(m) ? obj.constructor.name : 'Cobranca';
-    return { m, dono, padrao: dono === 'Cobranca' };
-  });
+  return criarApiLocal();
 }
 
 /* =====================================================================
-   DADOS DE EXEMPLO (fictícios)
+   API LOCAL (modo offline): mesmo contrato, com as classes copiadas
+   do repositório Java para JavaScript
    ===================================================================== */
-const BLACK = new Plano('Black', 149.90, 1499.00);
-const BASICO = new Plano('Básico', 99.90, 999.00);
-const ALUNOS = [
-  new Aluno('2024-0187', 'Ana Souza', BLACK, true, 10, false, 'cartao', 'tok_ana_4242'),
-  new Aluno('2025-0342', 'Bruno Lima', BASICO, false, 5, false, 'pix', 'tok_bruno_1881'),
-  new Aluno('2023-0099', 'Carla Mendes', BLACK, false, 10, true, 'boleto', null),
-  new Aluno('2025-0410', 'Diego Rocha', BASICO, false, 20, false, 'cartao', 'tok_recusa_0002'),
-  new Aluno('2024-0233', 'Elisa Prado', BLACK, false, 10, false, 'boleto', null),
-];
-const ITENS = [ { id: 'diaria', nome: 'Diária', preco: 35.00 }, { id: 'personal', nome: 'Aula com personal', preco: 90.00 }, { id: 'matricula', nome: 'Taxa de matrícula', preco: 60.00 } ];
-const COMPETENCIA = (() => { const d = hoje(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+function criarApiLocal() {
+  let seq = 1040;
+
+  class Plano { constructor(nome, valorMensal, valorAnual) { this.nome = nome; this.valorMensal = valorMensal; this.valorAnual = valorAnual; } }
+  class Aluno {
+    constructor(matricula, nome, plano, convenio, dia, bloqueado, forma, token) {
+      Object.assign(this, { matricula, nome, plano, convenio, diaVencimento: dia, bloqueado, formaPreferida: forma, tokenCartao: token });
+    }
+    temConvenioEmpresa() { return this.convenio; }
+    estaBloqueado() { return this.bloqueado; }
+  }
+  class Transacao {
+    static nova(aluno, valor, parcelas, vencimento) { const t = new Transacao(); t.id = 'TX-' + (++seq); t.aluno = aluno; t.valor = round2(valor); t.parcelas = parcelas; t.vencimento = vencimento; return t; }
+  }
+  class ResultadoPagamento {
+    constructor(status, idExterno, detalhe) { this.status = status; this.idExterno = idExterno; this.detalhe = detalhe; }
+    static aprovado(id) { return new ResultadoPagamento('APROVADO', id, 'Pagamento aprovado'); }
+    static pendente(id, instrucao) { return new ResultadoPagamento('PENDENTE', id, instrucao); }
+    static recusado(motivo) { return new ResultadoPagamento('RECUSADO', null, motivo); }
+  }
+  class CobrancaNaoPermitidaException extends Error { constructor(matricula) { super('Matrícula ' + matricula + ' bloqueada: cobrança não permitida'); } }
+  class IllegalArgumentException extends Error {}
+
+  /* Bridge: Implementor e ConcreteImplementors */
+  class MeioPagamento { executar(t) { throw new Error('abstrato'); } estornar(id) {} aceitaParcelamento() { return false; } }
+  class PagamentoPix extends MeioPagamento {
+    executar(t) {
+      const txid = 'fitpay' + t.id.replace(/\D/g, '') + 'pix';
+      const v = t.valor.toFixed(2);
+      return ResultadoPagamento.pendente(txid, '00020126580014br.gov.bcb.pix0136' + txid + '520400005303986540' + v.length + v + '5802BR5906FITPAY6009SAO PAULO');
+    }
+  }
+  class PagamentoCartao extends MeioPagamento {
+    executar(t) {
+      if (!t.aluno.tokenCartao) return ResultadoPagamento.recusado('Aluno sem cartão cadastrado');
+      if (t.aluno.tokenCartao.startsWith('tok_recusa')) return ResultadoPagamento.recusado('Saldo insuficiente');
+      return ResultadoPagamento.aprovado(String(480000 + seq));
+    }
+    aceitaParcelamento() { return true; }
+  }
+  class PagamentoBoleto extends MeioPagamento {
+    executar(t) {
+      const nossoNumero = String(20260000 + seq);
+      const centavos = String(Math.round(t.valor * 100)).padStart(10, '0');
+      return ResultadoPagamento.pendente(nossoNumero, '34191.09008 ' + nossoNumero.slice(0, 5) + '.' + nossoNumero.slice(5) + ' 00000.000000 1 ' + centavos);
+    }
+  }
+  class PagamentoDebitoAutomatico extends MeioPagamento {
+    executar(t) { return ResultadoPagamento.pendente('DA' + t.id.replace(/\D/g, ''), 'Débito agendado para ' + DATA(t.vencimento)); }
+  }
+
+  /* Factory Method: Product e ConcreteProducts */
+  class Comprovante { constructor(t, r) { this.transacao = t; this.resultado = r; } numero() { return this.transacao.id; } status() { return this.resultado.status; } }
+  class ReciboMensalidade extends Comprovante {
+    constructor(t, r, competencia, proximo) { super(t, r); this.competencia = competencia; this.proximo = proximo; }
+    get titulo() { return 'Recibo de mensalidade'; }
+    renderizar() { return 'Mensalidade ' + pad(this.competencia.m + 1) + '/' + this.competencia.y + ' de R$ ' + this.transacao.valor.toFixed(2) + '; próximo vencimento em ' + DATA(this.proximo); }
+    linhas() { return [['Competência', MES[this.competencia.m] + '/' + this.competencia.y], ['Vencimento', DATA(this.transacao.vencimento)], ['Próximo vencimento', DATA(this.proximo)]]; }
+  }
+  class ReciboAvulso extends Comprovante {
+    constructor(t, r, item) { super(t, r); this.item = item; }
+    get titulo() { return 'Recibo avulso'; }
+    renderizar() { return this.item.nome + ' de R$ ' + this.transacao.valor.toFixed(2); }
+    linhas() { return [['Item', this.item.nome], ['Vencimento', DATA(this.transacao.vencimento)]]; }
+  }
+  class ExtratoParcelamento extends Comprovante {
+    constructor(t, r, parcelas) { super(t, r); this.parcelas = parcelas; }
+    get titulo() { return 'Extrato do plano anual'; }
+    renderizar() { return 'Plano anual em ' + this.parcelas + 'x de R$ ' + round2(this.transacao.valor / this.parcelas).toFixed(2); }
+    linhas() { const p = this.parcelas; return [['Forma', p === 1 ? 'À vista, com 10% de desconto' : p + 'x de ' + BRL.format(round2(this.transacao.valor / p))], ['1º vencimento', DATA(this.transacao.vencimento)]]; }
+  }
+
+  /* Template Method: AbstractClass */
+  class Cobranca {
+    constructor(aluno, meio, livroCaixa, notificador) {
+      if (new.target === Cobranca) throw new Error('Cobranca é abstrata');
+      this.aluno = aluno; this.meio = meio; this.livroCaixa = livroCaixa; this.notificador = notificador;
+    }
+    processar(trace) {
+      trace = trace || { step(n, fn) { fn(); } };
+      trace.step(1, () => { this.validarAluno(); return 'Aluno liberado para cobrança'; }, 'validarAluno');
+      let valor;
+      trace.step(2, () => { valor = this.calcularValor(); return 'Valor bruto: ' + BRL.format(valor); }, 'calcularValor');
+      trace.step(3, () => { const a = valor; valor = this.aplicarDescontos(valor); return a === valor ? 'Sem desconto: ' + BRL.format(valor) : BRL.format(a) + ' → ' + BRL.format(valor) + ' (' + this.motivoDesconto() + ')'; }, 'aplicarDescontos');
+      let t;
+      trace.step(4, () => { t = Transacao.nova(this.aluno, valor, this.parcelas(), this.vencimento()); return t.id + ' · ' + (t.parcelas > 1 ? t.parcelas + ' parcelas' : 'parcela única') + ' · vence ' + DATA(t.vencimento); }, ['parcelas', 'vencimento']);
+      let r;
+      trace.step(5, () => { r = this.meio.executar(t); return r.status + (r.status === 'RECUSADO' ? ' · ' + r.detalhe : r.idExterno ? ' · ' + r.idExterno : ''); }, null, this.meio.constructor.name);
+      trace.step(6, () => { this.livroCaixa.registrar(t, r, this); return 'Lançamento ' + t.id + ' registrado'; }, null);
+      let c;
+      trace.step(7, () => { c = this.criarComprovante(t, r); return 'new ' + c.constructor.name + '(…)'; }, 'criarComprovante');
+      trace.step(8, () => { if (this.deveNotificar(r)) { this.notificador.enviar(this.aluno, c); return 'Comprovante enviado para ' + this.aluno.nome.split(' ')[0]; } return 'Notificação dispensada'; }, 'deveNotificar');
+      return c;
+    }
+    validarAluno() { if (this.aluno.estaBloqueado()) throw new CobrancaNaoPermitidaException(this.aluno.matricula); }
+    calcularValor() { throw new Error('abstrato'); }
+    criarComprovante(t, r) { throw new Error('abstrato'); }
+    aplicarDescontos(v) { return v; }
+    motivoDesconto() { return ''; }
+    parcelas() { return 1; }
+    vencimento() { const d = hoje(); d.setDate(d.getDate() + 3); return d; }
+    deveNotificar(r) { return true; }
+  }
+  class CobrancaMensalidade extends Cobranca {
+    constructor(aluno, meio, livro, notif, plano, competencia) { super(aluno, meio, livro, notif); this.plano = plano; this.competencia = competencia; }
+    get rotulo() { return 'Mensalidade ' + MES[this.competencia.m] + '/' + this.competencia.y; }
+    calcularValor() { return this.plano.valorMensal; }
+    aplicarDescontos(v) { return this.aluno.temConvenioEmpresa() ? round2(v * 0.85) : v; }
+    motivoDesconto() { return 'convênio empresarial, 15%'; }
+    vencimento() { return new Date(this.competencia.y, this.competencia.m, this.aluno.diaVencimento); }
+    criarComprovante(t, r) { const p = this.vencimento(); p.setMonth(p.getMonth() + 1); return new ReciboMensalidade(t, r, this.competencia, p); }
+  }
+  class CobrancaAvulsa extends Cobranca {
+    constructor(aluno, meio, livro, notif, item) { super(aluno, meio, livro, notif); this.item = item; }
+    get rotulo() { return this.item.nome; }
+    calcularValor() { return this.item.preco; }
+    vencimento() { return hoje(); }
+    criarComprovante(t, r) { return new ReciboAvulso(t, r, this.item); }
+  }
+  class CobrancaPlanoAnual extends Cobranca {
+    constructor(aluno, meio, livro, notif, plano, parcelas) {
+      super(aluno, meio, livro, notif);
+      if (parcelas > 1 && !meio.aceitaParcelamento()) throw new IllegalArgumentException('Parcelamento só é aceito no cartão');
+      this.plano = plano; this._parcelas = parcelas;
+    }
+    get rotulo() { return 'Plano anual ' + this.plano.nome + (this._parcelas > 1 ? ' em ' + this._parcelas + 'x' : ' à vista'); }
+    calcularValor() { return this.plano.valorAnual; }
+    aplicarDescontos(v) { return this._parcelas === 1 ? round2(v * 0.90) : v; }
+    motivoDesconto() { return 'à vista, 10%'; }
+    parcelas() { return this._parcelas; }
+    criarComprovante(t, r) { return new ExtratoParcelamento(t, r, this._parcelas); }
+  }
+  class LivroCaixa {
+    constructor() { this.lancamentos = []; }
+    registrar(t, r, cobranca) { this.lancamentos.unshift({ t, r, cobranca, quando: new Date(), confirmado: false, comprovante: null }); }
+  }
+  class Notificador { constructor() { this.enviados = []; } enviar(aluno, c) { this.enviados.push({ aluno, c }); } }
+
+  class Trace {
+    constructor(cobranca) { this.cobranca = cobranca; this.eventos = []; }
+    step(n, fn, metodos, donoFixo) {
+      const ev = { n, quem: donoFixo ? [{ m: null, dono: donoFixo, padrao: false }] : quem(this.cobranca, metodos) };
+      try { ev.out = fn(); ev.ok = true; this.eventos.push(ev); }
+      catch (e) { ev.out = e.message; ev.ok = false; ev.erro = e.constructor.name; this.eventos.push(ev); throw e; }
+    }
+  }
+  function quem(obj, metodos) {
+    if (!metodos) return null;
+    return (Array.isArray(metodos) ? metodos : [metodos]).map(m => {
+      const dono = Object.getPrototypeOf(obj).hasOwnProperty(m) ? obj.constructor.name : 'Cobranca';
+      return { m, dono, padrao: dono === 'Cobranca' };
+    });
+  }
+
+  /* dados de exemplo (fictícios), os mesmos do back-end */
+  const BLACK = new Plano('Black', 149.90, 1499.00), BASICO = new Plano('Básico', 99.90, 999.00);
+  const ALUNOS = [
+    new Aluno('2024-0187', 'Ana Souza', BLACK, true, 10, false, 'cartao', 'tok_ana_4242'),
+    new Aluno('2025-0342', 'Bruno Lima', BASICO, false, 5, false, 'pix', 'tok_bruno_1881'),
+    new Aluno('2023-0099', 'Carla Mendes', BLACK, false, 10, true, 'boleto', null),
+    new Aluno('2025-0410', 'Diego Rocha', BASICO, false, 20, false, 'cartao', 'tok_recusa_0002'),
+    new Aluno('2024-0233', 'Elisa Prado', BLACK, false, 10, false, 'boleto', null),
+  ];
+  const ITENS = [{ id: 'diaria', nome: 'Diária', preco: 35.00 }, { id: 'personal', nome: 'Aula com personal', preco: 90.00 }, { id: 'taxa_matricula', nome: 'Taxa de matrícula', preco: 60.00 }];
+  const COMP = (() => { const d = hoje(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+  const livro = new LivroCaixa(), notificador = new Notificador();
+  const meios = new Map([['pix', new PagamentoPix()], ['cartao', new PagamentoCartao()], ['boleto', new PagamentoBoleto()]]);
+
+  const aluno = mat => { const a = ALUNOS.find(x => x.matricula === mat); if (!a) throw new Error('Aluno não encontrado: ' + mat); return a; };
+  const meio = id => { const m = meios.get(id); if (!m) throw new Error('Meio de pagamento indisponível: ' + id); return m; };
+  const classeTipo = { mensalidade: 'CobrancaMensalidade', avulsa: 'CobrancaAvulsa', anual: 'CobrancaPlanoAnual' };
+  function montar(a, m, p, livroUso) {
+    if (p.tipo === 'mensalidade') return new CobrancaMensalidade(a, m, livroUso, notificador, a.plano, COMP);
+    if (p.tipo === 'avulsa') return new CobrancaAvulsa(a, m, livroUso, notificador, ITENS.find(i => i.id === (p.item || 'diaria')));
+    return new CobrancaPlanoAnual(a, m, livroUso, notificador, a.plano, p.parcelas || 1);
+  }
+  function previa(p) {
+    try { const c = montar(aluno(p.aluno), meio(p.meio || 'cartao'), p, new LivroCaixa()); const b = c.calcularValor(); return { bruto: b, valor: round2(c.aplicarDescontos(b)) }; }
+    catch (e) { return { erro: e.message }; }
+  }
+  const dtoAluno = a => ({ matricula: a.matricula, nome: a.nome, plano: { nome: a.plano.nome, valorMensal: a.plano.valorMensal, valorAnual: a.plano.valorAnual },
+    convenio: a.convenio, diaVencimento: a.diaVencimento, bloqueado: a.bloqueado, formaPreferida: a.formaPreferida,
+    cartaoFinal: a.tokenCartao ? a.tokenCartao.slice(-4) : null, valorMensalidade: previa({ aluno: a.matricula, tipo: 'mensalidade' }).valor });
+  const dtoLanc = l => ({ id: l.t.id, aluno: { matricula: l.t.aluno.matricula, nome: l.t.aluno.nome }, rotulo: l.cobranca.rotulo, tipo: l.tipo,
+    meio: l.meio, cobrancaClasse: l.cobranca.constructor.name, valor: l.t.valor, parcelas: l.t.parcelas, vencimento: isoData(l.t.vencimento),
+    status: l.confirmado ? 'APROVADO' : l.r.status, statusOriginal: l.r.status, confirmado: l.confirmado, idExterno: l.r.idExterno, detalhe: l.r.detalhe,
+    quando: isoLocal(l.quando), comprovante: l.comprovante ? { classe: l.comprovante.constructor.name, titulo: l.comprovante.titulo, linhas: l.comprovante.linhas(), texto: l.comprovante.renderizar() } : null });
+
+  function cobrar(p) {
+    let a = aluno(p.aluno);
+    if (p.simularRecusa && p.meio === 'cartao') a = Object.assign(Object.create(Aluno.prototype), a, { tokenCartao: 'tok_recusa_teste' });
+    const m = meio(p.meio);
+    const montagem = { tipoClasse: classeTipo[p.tipo], meioClasse: m.constructor.name };
+    let c;
+    try { c = montar(a, m, p, livro); }
+    catch (e) { return { lancamento: null, trace: [], montagem, erro: { classe: e.constructor.name, mensagem: e.message, bloqueio: false, montagem: true } }; }
+    const tr = new Trace(c);
+    let comp;
+    try { comp = c.processar(tr); }
+    catch (e) { return { lancamento: null, trace: tr.eventos, montagem, erro: { classe: e.constructor.name, mensagem: e.message, bloqueio: e instanceof CobrancaNaoPermitidaException, montagem: false } }; }
+    const l = livro.lancamentos[0];
+    Object.assign(l, { comprovante: comp, tipo: p.tipo, meio: p.meio });
+    return { lancamento: dtoLanc(l), erro: null, trace: tr.eventos, montagem };
+  }
+
+  /* movimentos de exemplo do dia */
+  [['2024-0233', 'taxa_matricula', 'boleto', 8, 12, false], ['2025-0342', 'diaria', 'pix', 9, 29, true], ['2024-0187', 'personal', 'cartao', 11, 46, false]]
+    .forEach(([mat, item, m, h, min, conf]) => { cobrar({ aluno: mat, tipo: 'avulsa', item, meio: m }); const l = livro.lancamentos[0]; const q = new Date(); q.setHours(h, min, 0, 0); l.quando = q; l.confirmado = conf; });
+
+  return {
+    tipo: 'local',
+    estado: async () => ({ backend: 'local', competencia: { ano: COMP.y, mes: COMP.m + 1, rotulo: MES[COMP.m] + '/' + COMP.y },
+      alunos: ALUNOS.map(dtoAluno), meios: [...meios].map(([id, m]) => ({ id, classe: m.constructor.name, aceitaParcelamento: m.aceitaParcelamento() })),
+      itens: ITENS.map(i => ({ ...i })), lancamentos: livro.lancamentos.map(dtoLanc) }),
+    previa: async p => previa(p),
+    cobrar: async p => cobrar(p),
+    confirmar: async id => { const l = livro.lancamentos.find(x => x.t.id === id); if (l && l.r.status === 'PENDENTE') l.confirmado = true; return dtoLanc(l); },
+    agendar: async dia => {
+      let gerados = 0; const ignorados = [];
+      for (const a of ALUNOS) {
+        if (a.diaVencimento !== dia) continue;
+        const r = cobrar({ aluno: a.matricula, tipo: 'mensalidade', meio: a.formaPreferida });
+        if (r.lancamento) gerados++; else if (r.erro && r.erro.bloqueio) ignorados.push(a.nome);
+      }
+      return { gerados, ignorados };
+    },
+    definirDebito: async ativo => { if (ativo) { if (!meios.has('debito')) meios.set('debito', new PagamentoDebitoAutomatico()); } else meios.delete('debito'); return { meios: [...meios.keys()] }; },
+  };
+}
+
+/* =====================================================================
+   TELA (só usa os dados que a API devolve)
+   ===================================================================== */
 const MEIOS_INFO = {
-  pix:    { nome: 'Pix', desc: 'QR Code, confirma em segundos', classe: 'PagamentoPix', ico: 'pix' },
-  cartao: { nome: 'Cartão de crédito', desc: 'Aprovação na hora, até 12x', classe: 'PagamentoCartao', ico: 'card' },
-  boleto: { nome: 'Boleto', desc: 'Compensa em até 2 dias úteis', classe: 'PagamentoBoleto', ico: 'barcode' },
-  debito: { nome: 'Débito automático', desc: 'Debita na conta no vencimento', classe: 'PagamentoDebitoAutomatico', ico: 'bolt' },
-};
-const TIPOS_INFO = {
-  mensalidade: { nome: 'Mensalidade', classe: 'CobrancaMensalidade' },
-  avulsa: { nome: 'Serviço avulso', classe: 'CobrancaAvulsa' },
-  anual: { nome: 'Plano anual', classe: 'CobrancaPlanoAnual' },
+  pix:    { nome: 'Pix', desc: 'QR Code, confirma em segundos', ico: 'pix' },
+  cartao: { nome: 'Cartão de crédito', desc: 'Aprovação na hora, até 12x', ico: 'card' },
+  boleto: { nome: 'Boleto', desc: 'Compensa em até 2 dias úteis', ico: 'barcode' },
+  debito: { nome: 'Débito automático', desc: 'Debita na conta no vencimento', ico: 'bolt' },
 };
 const PASSOS = {
   1: ['Validar aluno', 'fixo', 'Fixo', 'validarAluno()'],
@@ -566,17 +657,6 @@ const PASSOS = {
   7: ['Gerar comprovante', 'fm', 'Factory Method', 'criarComprovante(t, r)'],
   8: ['Notificar o aluno', 'tm', 'Gancho', 'if (deveNotificar(r)) notificador.enviar(aluno, c)'],
 };
-
-/* montagem com injeção pelo construtor */
-const livro = new LivroCaixa();
-const notificador = new Notificador();
-const meios = new Map([['pix', new PagamentoPix()], ['cartao', new PagamentoCartao()], ['boleto', new PagamentoBoleto()]]);
-const servico = new ServicoCobranca(meios, livro, notificador);
-const agendador = new Agendador(servico, ALUNOS);
-
-/* =====================================================================
-   TELA
-   ===================================================================== */
 const $ = id => document.getElementById(id);
 const ICON = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
@@ -602,23 +682,26 @@ const ICON = {
 const ico = (n, extra = '') => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" ${extra}>${ICON[n]}</svg>`;
 const iniciais = nome => nome.split(' ').map(p => p[0]).slice(0, 2).join('');
 
-const state = { view: 'inicio', filtro: 'todos', flow: null, recibo: null, trace: null, mostrados: 0, passoAPasso: false, montagem: '' };
+const state = { api: null, data: null, view: 'inicio', filtro: 'todos', flow: null, recibo: null, trace: null, erroMontagem: null, mostrados: 0, passoAPasso: false, montagem: '' };
 const VIEWS = [
   { id: 'inicio', nome: 'Início', ico: 'home' },
   { id: 'extrato', nome: 'Extrato', ico: 'list' },
   { id: 'alunos', nome: 'Alunos', ico: 'users' },
   { id: 'ajustes', nome: 'Ajustes', ico: 'gear' },
 ];
+const alunoPorMat = m => state.data.alunos.find(a => a.matricula === m);
+const meioObj = id => state.data.meios.find(m => m.id === id);
+const comp = () => state.data.competencia;
 
-function statusDe(l) { return l.confirmado ? 'APROVADO' : l.r.status; }
-function meioId(meio) { for (const [k, v] of meios) if (v === meio) return k; return 'pix'; }
+async function recarregar() { state.data = await state.api.estado(); }
+
 function totais() {
   const t = { recebido: 0, receber: 0, recusado: 0, nRec: 0, nPend: 0, nBad: 0 };
-  for (const l of livro.lancamentos) {
-    const s = statusDe(l);
-    if (s === 'APROVADO') { t.recebido += l.t.valor; t.nRec++; }
-    else if (s === 'PENDENTE') { t.receber += l.t.valor; t.nPend++; }
-    else { t.recusado += l.t.valor; t.nBad++; }
+  for (const l of state.data.lancamentos) {
+    const v = num(l.valor);
+    if (l.status === 'APROVADO') { t.recebido += v; t.nRec++; }
+    else if (l.status === 'PENDENTE') { t.receber += v; t.nPend++; }
+    else { t.recusado += v; t.nBad++; }
   }
   return t;
 }
@@ -631,6 +714,7 @@ async function copiar(texto) {
   try { await navigator.clipboard.writeText(texto); toast('Copiado'); }
   catch (e) { toast('Não deu para copiar automaticamente. Selecione o código e copie.'); }
 }
+function falhou(e) { toast('Não foi possível falar com o servidor: ' + e.message); }
 
 /* ---------- navegação ---------- */
 function renderNav() {
@@ -640,34 +724,41 @@ function renderNav() {
     ? `<button data-view="${v.id}" ${state.view === v.id ? 'aria-current="page"' : ''}>${ico(v.ico)}<span>${v.nome}</span></button>`
     : `<button class="plus" data-new="1" aria-label="Nova cobrança"><span>${ico('plus')}</span></button>`).join('');
 }
+function renderConexao() {
+  const c = $('conn'), java = state.api && state.api.tipo === 'java';
+  c.className = 'conn' + (java ? ' on' : '');
+  c.innerHTML = `<span class="dot" style="background:${java ? 'var(--good)' : 'var(--muted)'}"></span>${java ? 'Back-end Java' : 'Modo offline'}`;
+  c.title = java ? 'Conectado à API Java em ' + state.api.endereco : 'Sem back-end: a lógica roda em JavaScript no navegador';
+}
 function go(view) { state.view = view; render(); window.scrollTo(0, 0); }
 
 function render() {
   renderNav();
+  if (!state.data) { $('view').innerHTML = '<div class="empty">Carregando…</div>'; return; }
+  renderConexao();
   const v = VIEWS.find(x => x.id === state.view);
   $('title').textContent = v.nome;
-  const d = new Date();
-  const h = d.getHours();
+  const d = new Date(), h = d.getHours();
   $('subtitle').textContent = state.view === 'inicio'
     ? (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + ', recepção · ' + d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
-    : state.view === 'extrato' ? 'Livro-caixa da unidade' : state.view === 'alunos' ? ALUNOS.length + ' alunos ativos na unidade' : 'Meios de pagamento e regras';
+    : state.view === 'extrato' ? 'Livro-caixa da unidade' : state.view === 'alunos' ? state.data.alunos.length + ' alunos ativos na unidade' : 'Meios de pagamento e regras';
   $('view').innerHTML = { inicio: viewInicio, extrato: viewExtrato, alunos: viewAlunos, ajustes: viewAjustes }[state.view]();
 }
 
 function txRow(l) {
-  const s = statusDe(l), mid = meioId(l.cobranca.meio), mi = MEIOS_INFO[mid];
-  return `<button class="tx" data-tx="${l.t.id}">
+  const mi = MEIOS_INFO[l.meio] || MEIOS_INFO.pix;
+  return `<button class="tx" data-tx="${l.id}">
     <span class="tx-ico">${ico(mi.ico)}</span>
-    <span class="tx-main"><b>${l.cobranca.rotulo}</b><small>${l.t.aluno.nome} · ${mi.nome} · ${HORA(l.quando)}</small></span>
-    <span class="tx-right"><b>${BRL.format(l.t.valor)}</b><span class="pill ${s}">${s === 'APROVADO' ? 'Pago' : s === 'PENDENTE' ? 'Aguardando' : 'Recusado'}</span></span>
+    <span class="tx-main"><b>${l.rotulo}</b><small>${l.aluno.nome} · ${mi.nome} · ${HORA(new Date(l.quando))}</small></span>
+    <span class="tx-right"><b>${BRL.format(num(l.valor))}</b><span class="pill ${l.status}">${l.status === 'APROVADO' ? 'Pago' : l.status === 'PENDENTE' ? 'Aguardando' : 'Recusado'}</span></span>
   </button>`;
 }
 
 function viewInicio() {
   const t = totais();
-  const ultimos = livro.lancamentos.slice(0, 6);
-  const dia = hoje().getDate();
-  const doDia = ALUNOS.filter(a => a.diaVencimento === 10);
+  const ultimos = state.data.lancamentos.slice(0, 6);
+  const doDia = state.data.alunos.filter(a => a.diaVencimento === 10);
+  const n = state.data.lancamentos.length, nm = state.data.meios.length;
   return `
   <div class="hero">
     <div class="k"><div class="label"><span class="dot" style="background:var(--good)"></span>Recebido hoje</div><div class="big num">${BRL.format(t.recebido)}</div><div class="hint">${t.nRec} pagamento${t.nRec === 1 ? '' : 's'} confirmado${t.nRec === 1 ? '' : 's'}</div></div>
@@ -677,18 +768,18 @@ function viewInicio() {
   <div class="quick">
     <button data-new="1"><span class="qi">${ico('plus')}</span><b>Nova cobrança</b><small>Mensalidade, avulso ou plano anual</small></button>
     <button id="runAgenda"><span class="qi">${ico('calendar')}</span><b>Cobranças do dia 10</b><small>${doDia.length} aluno${doDia.length === 1 ? '' : 's'} com vencimento no dia 10</small></button>
-    <button data-view="extrato"><span class="qi">${ico('receipt')}</span><b>Extrato</b><small>${livro.lancamentos.length} lançamento${livro.lancamentos.length === 1 ? '' : 's'} no livro-caixa</small></button>
-    <button data-view="ajustes"><span class="qi">${ico('card')}</span><b>Meios de pagamento</b><small>${meios.size} ativo${meios.size === 1 ? '' : 's'}</small></button>
+    <button data-view="extrato"><span class="qi">${ico('receipt')}</span><b>Extrato</b><small>${n} lançamento${n === 1 ? '' : 's'} no livro-caixa</small></button>
+    <button data-view="ajustes"><span class="qi">${ico('card')}</span><b>Meios de pagamento</b><small>${nm} ativo${nm === 1 ? '' : 's'}</small></button>
   </div>
   <div class="cols">
     <div class="card"><div class="card-head"><h2>Últimas cobranças</h2><button class="link" data-view="extrato">Ver extrato</button></div>
       ${ultimos.length ? `<div class="tx-list">${ultimos.map(txRow).join('')}</div>` : `<div class="empty">Nenhuma cobrança ainda. Toque em Nova cobrança para começar.</div>`}
     </div>
     <div class="card"><div class="card-head"><h2>Vencendo no dia 10</h2></div>
-      <div class="tx-list">${doDia.map(a => `<button class="tx" data-cobrar="${ALUNOS.indexOf(a)}">
+      <div class="tx-list">${doDia.map(a => `<button class="tx" data-cobrar="${a.matricula}">
         <span class="avatar">${iniciais(a.nome)}</span>
-        <span class="tx-main"><b>${a.nome}</b><small>Plano ${a.plano.nome} · ${MEIOS_INFO[a.formaPreferida].nome}</small></span>
-        <span class="tx-right">${a.bloqueado ? '<span class="pill RECUSADO">Bloqueada</span>' : `<b>${BRL.format(a.convenio ? round2(a.plano.valorMensal * .85) : a.plano.valorMensal)}</b>`}</span>
+        <span class="tx-main"><b>${a.nome}</b><small>Plano ${a.plano.nome} · ${(MEIOS_INFO[a.formaPreferida] || {}).nome}</small></span>
+        <span class="tx-right">${a.bloqueado ? '<span class="pill RECUSADO">Bloqueada</span>' : `<b>${BRL.format(num(a.valorMensalidade))}</b>`}</span>
       </button>`).join('')}</div>
     </div>
   </div>
@@ -697,8 +788,8 @@ function viewInicio() {
 
 function viewExtrato() {
   const filtros = [['todos', 'Todos'], ['APROVADO', 'Pagos'], ['PENDENTE', 'Aguardando'], ['RECUSADO', 'Recusados']];
-  const lista = livro.lancamentos.filter(l => state.filtro === 'todos' || statusDe(l) === state.filtro);
-  const soma = lista.reduce((s, l) => s + l.t.valor, 0);
+  const lista = state.data.lancamentos.filter(l => state.filtro === 'todos' || l.status === state.filtro);
+  const soma = lista.reduce((s, l) => s + num(l.valor), 0);
   return `
   <div class="chips">${filtros.map(([id, n]) => `<button class="chip" data-filtro="${id}" aria-pressed="${state.filtro === id}">${n}</button>`).join('')}</div>
   <div class="card">
@@ -709,19 +800,20 @@ function viewExtrato() {
 }
 
 function viewAlunos() {
-  return `<div class="people">${ALUNOS.map((a, i) => `
+  return `<div class="people">${state.data.alunos.map(a => `
     <div class="card person">
       <div class="person-top"><span class="avatar">${iniciais(a.nome)}</span><div><b>${a.nome}</b><small>Matrícula ${a.matricula}</small></div></div>
       <div class="badges">${a.convenio ? '<span class="badge blue">Convênio empresarial</span>' : ''}${a.bloqueado ? '<span class="badge bad">Matrícula bloqueada</span>' : ''}<span class="badge">Plano ${a.plano.nome}</span></div>
-      <dl class="facts"><dt>Mensalidade</dt><dd class="num">${BRL.format(a.plano.valorMensal)}</dd><dt>Vencimento</dt><dd>Todo dia ${a.diaVencimento}</dd><dt>Paga com</dt><dd>${MEIOS_INFO[a.formaPreferida].nome}${a.tokenCartao && a.formaPreferida === 'cartao' ? ' final ' + a.tokenCartao.slice(-4) : ''}</dd></dl>
-      <button class="btn btn-ghost" data-cobrar="${i}">${ico('plus')}Cobrar</button>
+      <dl class="facts"><dt>Mensalidade</dt><dd class="num">${BRL.format(num(a.plano.valorMensal))}</dd><dt>Vencimento</dt><dd>Todo dia ${a.diaVencimento}</dd><dt>Paga com</dt><dd>${(MEIOS_INFO[a.formaPreferida] || {}).nome}${a.cartaoFinal && a.formaPreferida === 'cartao' ? ' final ' + a.cartaoFinal : ''}</dd></dl>
+      <button class="btn btn-ghost" data-cobrar="${a.matricula}">${ico('plus')}Cobrar</button>
     </div>`).join('')}</div>`;
 }
 
 function viewAjustes() {
-  const linha = (id, fixo) => { const m = MEIOS_INFO[id]; const on = meios.has(id);
+  const ativos = new Set(state.data.meios.map(m => m.id));
+  const linha = (id, fixo) => { const m = MEIOS_INFO[id];
     return `<div class="setting"><span class="tx-ico">${ico(m.ico)}</span><div><b>${m.nome}${id === 'debito' ? ' <span class="badge blue">Novo</span>' : ''}</b><small>${m.desc}</small></div>
-      <label class="switch" title="${fixo ? 'Sempre ativo' : 'Ativar ou desativar'}"><input type="checkbox" id="sw-${id}" data-meio="${id}" ${on ? 'checked' : ''} ${fixo ? 'disabled' : ''} aria-label="${m.nome}"><span></span></label></div>`; };
+      <label class="switch" title="${fixo ? 'Sempre ativo' : 'Ativar ou desativar'}"><input type="checkbox" id="sw-${id}" data-meio="${id}" ${ativos.has(id) ? 'checked' : ''} ${fixo ? 'disabled' : ''} aria-label="${m.nome}"><span></span></label></div>`; };
   return `
   <div class="cols">
     <div class="card"><div class="card-head"><h2>Meios de pagamento</h2></div>
@@ -743,26 +835,16 @@ function viewAjustes() {
 /* =====================================================================
    FLUXO DE NOVA COBRANÇA
    ===================================================================== */
-function abrirFluxo(alunoIdx) {
-  state.flow = { step: alunoIdx == null ? 1 : 2, aluno: alunoIdx ?? null, tipo: null, item: 'diaria', parcelas: 1, meio: null, recusa: false, busca: '' };
+function abrirFluxo(mat) {
+  const a = mat ? alunoPorMat(mat) : null;
+  state.flow = { step: a ? 2 : 1, aluno: a ? a.matricula : null, tipo: null, item: 'diaria', parcelas: 1, meio: a && meioObj(a.formaPreferida) ? a.formaPreferida : null, recusa: false, busca: '', previas: null, previaFinal: null, chaveFinal: '' };
   state.recibo = null;
-  if (alunoIdx != null) state.flow.meio = ALUNOS[alunoIdx].formaPreferida;
   $('overlay').hidden = false;
   renderSheet();
 }
 function fecharSheet() { $('overlay').hidden = true; state.flow = null; state.recibo = null; render(); }
 
-function previa(f) {
-  /* reaproveita as próprias classes: calcula o valor sem processar */
-  const aluno = ALUNOS[f.aluno];
-  const pedido = { tipo: f.tipo, item: ITENS.find(i => i.id === f.item), parcelas: f.parcelas };
-  try { const c = servico.montar(aluno, pedido, f.meio || 'cartao'); return { valor: round2(c.aplicarDescontos(c.calcularValor())), cobranca: c }; }
-  catch (e) { return { valor: null, erro: e.message }; }
-}
-function valorTipo(aluno, tipo) {
-  const c = servico.montar(aluno, { tipo, item: ITENS[0], parcelas: 1 }, 'cartao');
-  return { bruto: c.calcularValor(), final: round2(c.aplicarDescontos(c.calcularValor())) };
-}
+const pedidoDo = (f, meio) => ({ aluno: f.aluno, tipo: f.tipo, item: f.item, parcelas: f.parcelas, meio: meio || f.meio, simularRecusa: f.recusa && (meio || f.meio) === 'cartao' });
 
 function sheetHead(titulo, voltar) {
   return `<div class="sheet-head">${voltar ? `<button class="icon-btn" data-back="1" aria-label="Voltar">${ico('back')}</button>` : ''}<h2 id="sheetTitle">${titulo}</h2><button class="icon-btn" data-close="1" aria-label="Fechar">${ico('x')}</button></div>`;
@@ -774,35 +856,45 @@ function stepsBar(n) {
 
 function renderSheet() {
   const s = $('sheet');
-  if (state.recibo) { s.innerHTML = sheetRecibo(state.recibo); return; }
-  const f = state.flow;
+  if (state.recibo) { s.innerHTML = sheetRecibo(state.recibo); iniciarTimer(); return; }
+  const f = state.flow; if (!f) return;
   if (f.step === 1) {
     const q = f.busca.toLowerCase();
-    const lista = ALUNOS.map((a, i) => [a, i]).filter(([a]) => !q || a.nome.toLowerCase().includes(q) || a.matricula.includes(q));
+    const lista = state.data.alunos.filter(a => !q || a.nome.toLowerCase().includes(q) || a.matricula.includes(q));
     s.innerHTML = sheetHead('Nova cobrança') + stepsBar(1) + `<div class="sheet-body">
       <label class="search">${ico('search')}<input id="busca" type="search" placeholder="Buscar aluno por nome ou matrícula" value="${f.busca}" autocomplete="off" aria-label="Buscar aluno"></label>
-      ${lista.map(([a, i]) => `<button class="option" data-aluno="${i}" aria-pressed="${f.aluno === i}"><span class="avatar">${iniciais(a.nome)}</span><div><b>${a.nome}</b><small>Matrícula ${a.matricula} · plano ${a.plano.nome}</small></div>${a.bloqueado ? '<span class="pill RECUSADO">Bloqueada</span>' : ''}</button>`).join('') || '<div class="empty">Nenhum aluno encontrado.</div>'}
+      ${lista.map(a => `<button class="option" data-aluno="${a.matricula}" aria-pressed="${f.aluno === a.matricula}"><span class="avatar">${iniciais(a.nome)}</span><div><b>${a.nome}</b><small>Matrícula ${a.matricula} · plano ${a.plano.nome}</small></div>${a.bloqueado ? '<span class="pill RECUSADO">Bloqueada</span>' : ''}</button>`).join('') || '<div class="empty">Nenhum aluno encontrado.</div>'}
     </div>`;
-    const b = $('busca'); b.oninput = e => { f.busca = e.target.value; const pos = e.target.selectionStart; renderSheet(); const nb = $('busca'); nb.focus(); nb.setSelectionRange(pos, pos); };
+    $('busca').oninput = e => { f.busca = e.target.value; const pos = e.target.selectionStart; renderSheet(); const nb = $('busca'); nb.focus(); nb.setSelectionRange(pos, pos); };
     return;
   }
-  const aluno = ALUNOS[f.aluno];
+  const aluno = alunoPorMat(f.aluno);
   if (f.step === 2) {
-    const vm = valorTipo(aluno, 'mensalidade'), va = valorTipo(aluno, 'anual');
+    if (!f.previas) {
+      f.previas = 'carregando';
+      Promise.all(['mensalidade', 'anual'].map(tipo => state.api.previa({ aluno: f.aluno, tipo, parcelas: 1, meio: 'cartao' })))
+        .then(([m, a]) => { f.previas = { mensalidade: m, anual: a }; if (state.flow === f && f.step === 2) renderSheet(); })
+        .catch(e => { f.previas = null; falhou(e); });
+    }
+    const pv = f.previas && f.previas !== 'carregando' ? f.previas : null;
+    const vm = pv ? pv.mensalidade : null, va = pv ? pv.anual : null;
+    const valorTxt = v => v && v.valor != null ? BRL.format(num(v.valor)) : '…';
+    const menor = state.data.itens.reduce((m, i) => Math.min(m, num(i.preco)), Infinity);
     s.innerHTML = sheetHead('O que cobrar', true) + stepsBar(2) + `<div class="sheet-body">
       <p class="note">Cobrança para <b>${aluno.nome}</b> · plano ${aluno.plano.nome}</p>
-      <button class="option" data-tipo="mensalidade" aria-pressed="${f.tipo === 'mensalidade'}"><span class="tx-ico">${ico('calendar')}</span><div><b>Mensalidade ${MES[COMPETENCIA.m]}/${COMPETENCIA.y}</b><small>Vence dia ${aluno.diaVencimento}${aluno.convenio ? ' · convênio empresarial, 15% off' : ''}</small></div><span class="val">${BRL.format(vm.final)}${vm.final !== vm.bruto ? `<small><s>${BRL.format(vm.bruto)}</s></small>` : ''}</span></button>
-      <button class="option" data-tipo="avulsa" aria-pressed="${f.tipo === 'avulsa'}"><span class="tx-ico">${ico('receipt')}</span><div><b>Serviço avulso</b><small>Diária, aula com personal ou matrícula</small></div><span class="val">a partir de ${BRL.format(35)}</span></button>
-      ${f.tipo === 'avulsa' ? `<div class="sub-options">${ITENS.map(it => `<button class="chip" data-item="${it.id}" aria-pressed="${f.item === it.id}">${it.nome} · ${BRL.format(it.preco)}</button>`).join('')}</div>` : ''}
-      <button class="option" data-tipo="anual" aria-pressed="${f.tipo === 'anual'}"><span class="tx-ico">${ico('card')}</span><div><b>Plano anual ${aluno.plano.nome}</b><small>À vista com 10% off ou em até 12x no cartão</small></div><span class="val">${BRL.format(va.final)}<small>à vista</small></span></button>
+      <button class="option" data-tipo="mensalidade" aria-pressed="${f.tipo === 'mensalidade'}"><span class="tx-ico">${ico('calendar')}</span><div><b>Mensalidade ${comp().rotulo}</b><small>Vence dia ${aluno.diaVencimento}${aluno.convenio ? ' · convênio empresarial, 15% off' : ''}</small></div><span class="val">${valorTxt(vm)}${vm && num(vm.valor) !== num(vm.bruto) ? `<small><s>${BRL.format(num(vm.bruto))}</s></small>` : ''}</span></button>
+      <button class="option" data-tipo="avulsa" aria-pressed="${f.tipo === 'avulsa'}"><span class="tx-ico">${ico('receipt')}</span><div><b>Serviço avulso</b><small>Diária, aula com personal ou matrícula</small></div><span class="val">a partir de ${BRL.format(menor)}</span></button>
+      ${f.tipo === 'avulsa' ? `<div class="sub-options">${state.data.itens.map(it => `<button class="chip" data-item="${it.id}" aria-pressed="${f.item === it.id}">${it.nome} · ${BRL.format(num(it.preco))}</button>`).join('')}</div>` : ''}
+      <button class="option" data-tipo="anual" aria-pressed="${f.tipo === 'anual'}"><span class="tx-ico">${ico('card')}</span><div><b>Plano anual ${aluno.plano.nome}</b><small>À vista com 10% off ou em até 12x no cartão</small></div><span class="val">${valorTxt(va)}<small>à vista</small></span></button>
     </div><div class="sheet-foot"><button class="btn btn-primary btn-block" data-next="1" ${f.tipo ? '' : 'disabled'}>Continuar</button></div>`;
     return;
   }
   if (f.step === 3) {
-    const aceita = f.meio && meios.get(f.meio).aceitaParcelamento();
+    const mo = f.meio ? meioObj(f.meio) : null;
+    const aceita = !!(mo && mo.aceitaParcelamento);
     s.innerHTML = sheetHead('Como pagar', true) + stepsBar(3) + `<div class="sheet-body">
-      ${[...meios.keys()].map(id => { const m = MEIOS_INFO[id]; return `<button class="option" data-meio-sel="${id}" aria-pressed="${f.meio === id}"><span class="tx-ico">${ico(m.ico)}</span><div><b>${m.nome}${aluno.formaPreferida === id ? ' <span class="badge">Preferido</span>' : ''}</b><small>${id === 'cartao' && aluno.tokenCartao ? 'Cartão salvo final ' + aluno.tokenCartao.slice(-4) : id === 'cartao' ? 'Nenhum cartão salvo' : m.desc}</small></div></button>`; }).join('')}
-      ${f.tipo === 'anual' && f.meio ? `<div class="field"><label for="parcelas">Parcelas</label><select id="parcelas" ${aceita ? '' : 'disabled'}>${(aceita ? [1, 2, 3, 6, 10, 12] : [1]).map(p => `<option value="${p}" ${p === f.parcelas ? 'selected' : ''}>${p === 1 ? 'À vista, com 10% de desconto' : p + 'x de ' + BRL.format(round2(aluno.plano.valorAnual / p)) + ' sem juros'}</option>`).join('')}</select>${aceita ? '' : `<span class="note">${MEIOS_INFO[f.meio].nome} não aceita parcelamento.</span>`}</div>` : ''}
+      ${state.data.meios.map(m => { const info = MEIOS_INFO[m.id] || { nome: m.id, desc: '', ico: 'card' }; return `<button class="option" data-meio-sel="${m.id}" aria-pressed="${f.meio === m.id}"><span class="tx-ico">${ico(info.ico)}</span><div><b>${info.nome}${aluno.formaPreferida === m.id ? ' <span class="badge">Preferido</span>' : ''}</b><small>${m.id === 'cartao' && aluno.cartaoFinal ? 'Cartão salvo final ' + aluno.cartaoFinal : m.id === 'cartao' ? 'Nenhum cartão salvo' : info.desc}</small></div></button>`; }).join('')}
+      ${f.tipo === 'anual' && f.meio ? `<div class="field"><label for="parcelas">Parcelas</label><select id="parcelas" ${aceita ? '' : 'disabled'}>${(aceita ? [1, 2, 3, 6, 10, 12] : [1]).map(p => `<option value="${p}" ${p === f.parcelas ? 'selected' : ''}>${p === 1 ? 'À vista, com 10% de desconto' : p + 'x de ' + BRL.format(round2(num(aluno.plano.valorAnual) / p)) + ' sem juros'}</option>`).join('')}</select>${aceita ? '' : `<span class="note">${(MEIOS_INFO[f.meio] || {}).nome} não aceita parcelamento.</span>`}</div>` : ''}
       ${f.meio === 'cartao' ? `<label class="test-toggle"><input type="checkbox" id="recusa" ${f.recusa ? 'checked' : ''}>Modo de teste: simular recusa da operadora</label>` : ''}
     </div><div class="sheet-foot"><button class="btn btn-primary btn-block" data-next="1" ${f.meio ? '' : 'disabled'}>Continuar</button></div>`;
     if ($('parcelas')) $('parcelas').onchange = e => { f.parcelas = +e.target.value; };
@@ -810,54 +902,57 @@ function renderSheet() {
     return;
   }
   if (f.step === 4) {
-    const p = previa(f);
-    const tipoNome = f.tipo === 'mensalidade' ? 'Mensalidade ' + MES[COMPETENCIA.m] + '/' + COMPETENCIA.y : f.tipo === 'avulsa' ? ITENS.find(i => i.id === f.item).nome : 'Plano anual ' + aluno.plano.nome;
-    const forma = f.tipo === 'anual' ? (f.parcelas > 1 ? f.parcelas + 'x de ' + BRL.format(round2((p.valor || 0) / f.parcelas)) : 'À vista') : 'Parcela única';
+    const chave = JSON.stringify(pedidoDo(f));
+    if (f.chaveFinal !== chave) {
+      f.chaveFinal = chave; f.previaFinal = null;
+      state.api.previa(pedidoDo(f)).then(p => { if (state.flow === f && f.chaveFinal === chave) { f.previaFinal = p; if (f.step === 4) renderSheet(); } }).catch(falhou);
+    }
+    const p = f.previaFinal, valor = p && p.valor != null ? num(p.valor) : null;
+    const item = state.data.itens.find(i => i.id === f.item);
+    const tipoNome = f.tipo === 'mensalidade' ? 'Mensalidade ' + comp().rotulo : f.tipo === 'avulsa' ? item.nome : 'Plano anual ' + aluno.plano.nome;
+    const forma = f.tipo === 'anual' ? (f.parcelas > 1 ? f.parcelas + 'x de ' + (valor == null ? '…' : BRL.format(round2(valor / f.parcelas))) : 'À vista') : 'Parcela única';
     s.innerHTML = sheetHead('Revisão', true) + stepsBar(4) + `<div class="sheet-body">
       <div class="summary">
         <div class="row"><span>Aluno</span><b>${aluno.nome}</b></div>
         <div class="row"><span>Cobrança</span><b>${tipoNome}</b></div>
-        <div class="row"><span>Pagamento</span><b>${MEIOS_INFO[f.meio].nome}</b></div>
+        <div class="row"><span>Pagamento</span><b>${(MEIOS_INFO[f.meio] || {}).nome}</b></div>
         <div class="row"><span>Forma</span><b>${forma}</b></div>
-        <div class="row total"><span>Total</span><b class="num">${p.valor == null ? 'a calcular' : BRL.format(p.valor)}</b></div>
+        <div class="row total"><span>Total</span><b class="num">${valor == null ? (p && p.erro ? 'indisponível' : '…') : BRL.format(valor)}</b></div>
       </div>
       ${aluno.bloqueado ? `<p class="note">${ico('alert', 'style="width:16px;height:16px;vertical-align:-3px"')} A matrícula desta aluna está bloqueada.</p>` : ''}
-    </div><div class="sheet-foot"><button class="btn btn-primary btn-block" id="confirmar">Cobrar ${p.valor == null ? '' : BRL.format(p.valor)}</button></div>`;
+    </div><div class="sheet-foot"><button class="btn btn-primary btn-block" id="confirmar">Cobrar${valor == null ? '' : ' ' + BRL.format(valor)}</button></div>`;
     $('confirmar').onclick = () => executar();
   }
 }
 
-function executar(meioForcado) {
-  const f = state.flow, aluno = ALUNOS[f.aluno];
-  const meioKey = meioForcado || f.meio;
-  const pedido = { tipo: f.tipo, item: ITENS.find(i => i.id === f.item), parcelas: f.parcelas };
-  const alunoUso = f.recusa && meioKey === 'cartao' ? Object.assign(Object.create(Aluno.prototype), aluno, { tokenCartao: 'tok_recusa_teste' }) : aluno;
-  const tipoCls = TIPOS_INFO[f.tipo].classe, meioCls = MEIOS_INFO[meioKey].classe;
-  state.montagem = montagemHTML(tipoCls, meioCls, aluno, f);
-  let cobranca, trace, comprovante = null, erro = null;
-  try { cobranca = servico.montar(alunoUso, pedido, meioKey); }
-  catch (e) { erro = e; }
-  if (!erro) {
-    trace = new Trace(cobranca);
-    try { comprovante = cobranca.processar(trace); } catch (e) { erro = e; }
-  }
-  state.trace = trace ? trace.eventos : [];
-  state.erroMontagem = !trace && erro ? erro : null;
+async function executar(meioForcado) {
+  const f = state.flow; if (!f) return;
+  const meio = meioForcado || f.meio;
+  const aluno = alunoPorMat(f.aluno);
+  const info = MEIOS_INFO[meio] || {};
+  $('sheet').innerHTML = `<div class="sheet-body" style="align-items:center;padding:56px 20px"><div class="result"><div class="result-ico pend">${ico('clock')}</div><h3>Processando…</h3><p>Falando com ${meio === 'cartao' ? 'a operadora do cartão' : meio === 'boleto' ? 'o banco' : 'o provedor'}</p></div></div>`;
+  const inicio = Date.now();
+  let resp;
+  try { resp = await state.api.cobrar(pedidoDo(f, meio)); await recarregar(); }
+  catch (e) { falhou(e); renderSheet(); return; }
+  state.trace = resp.trace || [];
+  state.erroMontagem = resp.erro && resp.erro.montagem ? resp.erro : null;
+  state.montagem = montagemHTML(resp.montagem, aluno, f);
   state.mostrados = state.passoAPasso ? 1 : 8;
-  const l = comprovante ? livro.lancamentos.find(x => x.t.id === comprovante.numero()) : null;
-  if (l) l.comprovante = comprovante;
-  state.recibo = { l, erro, aluno, meioKey, novo: true };
-  $('sheet').innerHTML = `<div class="sheet-body" style="align-items:center;padding:56px 20px"><div class="result"><div class="result-ico pend">${ico('clock')}</div><h3>Processando…</h3><p>Falando com ${MEIOS_INFO[meioKey].nome === 'Cartão de crédito' ? 'a operadora do cartão' : MEIOS_INFO[meioKey].nome === 'Boleto' ? 'o banco' : 'o provedor'}</p></div></div>`;
+  state.recibo = { l: resp.lancamento, erro: resp.erro, aluno, meio, novo: true };
   renderDev();
-  const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  setTimeout(() => { if (state.recibo) { renderSheet(); render(); } }, reduz ? 0 : 650);
+  const espera = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : Math.max(0, 650 - (Date.now() - inicio));
+  setTimeout(() => { if (state.recibo) { renderSheet(); render(); } }, espera);
+  void info;
 }
 
-function montagemHTML(tipoCls, meioCls, aluno, f) {
-  const extra = f.tipo === 'mensalidade' ? `competencia` : f.tipo === 'avulsa' ? `ItemAvulso.${f.item.toUpperCase()}` : `${f.parcelas}`;
-  return `<span class="c">// ServicoCobranca monta a combinação (Bridge)</span>
-<span class="b">MeioPagamento</span> meio = <span class="k">new</span> <span class="b">${meioCls}</span>(…);
-<span class="b">Cobranca</span> c = <span class="k">new</span> ${tipoCls}(
+function montagemHTML(m, aluno, f) {
+  if (!m) return '';
+  const extra = f.tipo === 'mensalidade' ? 'competencia' : f.tipo === 'avulsa' ? 'ItemAvulso.' + f.item.toUpperCase() : String(f.parcelas);
+  const onde = state.api.tipo === 'java' ? 'no back-end Java' : 'no navegador (modo offline)';
+  return `<span class="c">// executado ${onde}</span>
+<span class="b">MeioPagamento</span> meio = <span class="k">new</span> <span class="b">${m.meioClasse}</span>(…);
+<span class="b">Cobranca</span> c = <span class="k">new</span> ${m.tipoClasse}(
     ${aluno.nome.split(' ')[0].toLowerCase()}, meio, …, ${extra});
 c.processar();   <span class="c">// Template Method</span>`;
 }
@@ -887,39 +982,41 @@ function barcodeSVG(linha) {
 
 function sheetRecibo(rc) {
   const { l, erro, aluno } = rc;
-  if (erro && !l) {
-    const bloqueio = erro instanceof CobrancaNaoPermitidaException;
+  if (!l) {
+    const bloqueio = erro && erro.bloqueio;
     return sheetHead(bloqueio ? 'Cobrança não permitida' : 'Não foi possível cobrar') + `<div class="sheet-body"><div class="result">
       <div class="result-ico bad">${ico(bloqueio ? 'alert' : 'x')}</div>
       <h3>${bloqueio ? 'Matrícula bloqueada' : 'Combinação não aceita'}</h3>
-      <p>${bloqueio ? `${aluno.nome} está com a matrícula ${aluno.matricula} bloqueada. Nenhum pagamento foi tentado e nada entrou no extrato.` : erro.message + '.'}</p>
+      <p>${bloqueio ? `${aluno.nome} está com a matrícula ${aluno.matricula} bloqueada. Nenhum pagamento foi tentado e nada entrou no extrato.` : (erro ? erro.mensagem : 'Erro desconhecido') + '.'}</p>
     </div></div><div class="sheet-foot"><button class="btn btn-ghost btn-block" data-close="1">Fechar</button></div>`;
   }
-  const s = statusDe(l), c = l.comprovante, mid = meioId(l.cobranca.meio);
+  const s = l.status, c = l.comprovante, mid = l.meio;
   const cab = s === 'APROVADO' ? ['ok', 'check', rc.novo ? 'Pagamento aprovado' : 'Pagamento confirmado']
     : s === 'RECUSADO' ? ['bad', 'x', 'Pagamento recusado']
     : mid === 'pix' ? ['pend', 'pix', 'Pague com Pix'] : mid === 'boleto' ? ['pend', 'barcode', 'Boleto gerado'] : ['pend', 'clock', 'Débito agendado'];
   let extra = '';
   if (s === 'PENDENTE' && mid === 'pix') {
-    extra = `<div class="qr-box">${qrSVG(l.r.detalhe)}<small>Escaneie no app do banco · expira em <span class="timer" id="timer">30:00</span></small></div>
-      <div class="copy-field"><code>${l.r.detalhe}</code><button class="btn btn-ghost" data-copy="${l.r.detalhe}">${ico('copy')}Copiar</button></div>
-      <button class="btn btn-dark btn-block" data-confirmar="${l.t.id}">Simular pagamento recebido</button>`;
+    extra = `<div class="qr-box">${qrSVG(l.detalhe)}<small>Escaneie no app do banco · expira em <span class="timer" id="timer">30:00</span></small></div>
+      <div class="copy-field"><code>${l.detalhe}</code><button class="btn btn-ghost" data-copy="${l.detalhe}">${ico('copy')}Copiar</button></div>
+      <button class="btn btn-dark btn-block" data-confirmar="${l.id}">Simular pagamento recebido</button>`;
   } else if (s === 'PENDENTE' && mid === 'boleto') {
-    extra = `<div class="qr-box" style="width:100%;color:#14222F">${barcodeSVG(l.r.detalhe)}<small>Vencimento ${DATA(l.t.vencimento)}</small></div>
-      <div class="copy-field"><code>${l.r.detalhe}</code><button class="btn btn-ghost" data-copy="${l.r.detalhe.replace(/\D/g, '')}">${ico('copy')}Copiar</button></div>
-      <button class="btn btn-dark btn-block" data-confirmar="${l.t.id}">Simular compensação do boleto</button>`;
+    extra = `<div class="qr-box" style="width:100%;color:#14222F">${barcodeSVG(l.detalhe)}<small>Vencimento ${DATA(dataLocal(l.vencimento))}</small></div>
+      <div class="copy-field"><code>${l.detalhe}</code><button class="btn btn-ghost" data-copy="${l.detalhe.replace(/\D/g, '')}">${ico('copy')}Copiar</button></div>
+      <button class="btn btn-dark btn-block" data-confirmar="${l.id}">Simular compensação do boleto</button>`;
   } else if (s === 'RECUSADO') {
-    const parcelado = l.cobranca.parcelas() > 1;
-    extra = `<p class="note">${l.r.detalhe}.</p>${rc.novo ? `<button class="btn btn-primary btn-block" data-retry="${parcelado ? 'cartao' : 'pix'}">${parcelado ? 'Tentar com outro cartão' : 'Cobrar a mesma conta com Pix'}</button>` : ''}`;
+    const parcelado = l.parcelas > 1;
+    extra = `<p class="note">${l.detalhe}.</p>${rc.novo && state.flow ? `<button class="btn btn-primary btn-block" data-retry="${parcelado ? 'cartao' : 'pix'}">${parcelado ? 'Tentar com outro cartão' : 'Cobrar a mesma conta com Pix'}</button>` : ''}`;
   }
-  const linhas = [['Aluno', `${l.t.aluno.nome} · ${l.t.aluno.matricula}`], ['Cobrança', l.cobranca.rotulo], ['Pagamento', MEIOS_INFO[mid].nome + (l.t.parcelas > 1 ? ` em ${l.t.parcelas}x` : '')], ...(c ? c.linhas() : []), ['Transação', l.t.id], ...(l.r.idExterno && mid !== 'boleto' ? [['ID no provedor', l.r.idExterno.length > 24 ? l.r.idExterno.slice(0, 24) + '…' : l.r.idExterno]] : []), ['Data', DATA(l.quando) + ' às ' + HORA(l.quando)]];
+  const quando = new Date(l.quando);
+  const linhas = [['Aluno', `${l.aluno.nome} · ${l.aluno.matricula}`], ['Cobrança', l.rotulo], ['Pagamento', (MEIOS_INFO[mid] || {}).nome + (l.parcelas > 1 ? ` em ${l.parcelas}x` : '')], ...(c ? c.linhas : []), ['Transação', l.id],
+    ...(l.idExterno && mid !== 'boleto' ? [['ID no provedor', l.idExterno.length > 24 ? l.idExterno.slice(0, 24) + '…' : l.idExterno]] : []), ['Data', DATA(quando) + ' às ' + HORA(quando)]];
   return sheetHead(c ? c.titulo : 'Comprovante') + `<div class="sheet-body"><div class="result">
       <div class="result-ico ${cab[0]}">${ico(cab[1])}</div>
       <h3>${cab[2]}</h3>
-      <div class="amount">${BRL.format(l.t.valor)}</div>
+      <div class="amount">${BRL.format(num(l.valor))}</div>
       ${extra}
       <div class="summary receipt-rows">${linhas.map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
-      ${c ? `<div class="made-by dev-only">Comprovante criado por ${l.cobranca.constructor.name}.criarComprovante() → ${c.constructor.name}</div>` : ''}
+      ${c ? `<div class="made-by dev-only">Comprovante criado por ${l.cobrancaClasse}.criarComprovante() → ${c.classe}</div>` : ''}
     </div></div>
     <div class="sheet-foot"><button class="btn btn-ghost btn-block" data-close="1">Fechar</button><button class="btn btn-primary btn-block" data-new="1">Nova cobrança</button></div>`;
 }
@@ -927,26 +1024,26 @@ function sheetRecibo(rc) {
 let timerInt = null;
 function iniciarTimer() {
   clearInterval(timerInt);
-  const el = $('timer'); if (!el) return;
+  if (!$('timer')) return;
   const fim = Date.now() + 30 * 60 * 1000;
-  timerInt = setInterval(() => { const t = $('timer'); if (!t) { clearInterval(timerInt); return; } const s = Math.max(0, Math.round((fim - Date.now()) / 1000)); t.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }, 1000);
+  timerInt = setInterval(() => { const t = $('timer'); if (!t) { clearInterval(timerInt); return; } const s = Math.max(0, Math.round((fim - Date.now()) / 1000)); t.textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60); }, 1000);
 }
-const _renderSheet = renderSheet;
-renderSheet = function () { _renderSheet(); iniciarTimer(); };
 
 /* =====================================================================
    PAINEL "POR DENTRO"
    ===================================================================== */
 function renderDev() {
   const body = $('devBody');
+  const java = state.api && state.api.tipo === 'java';
   const legenda = `<div class="legend"><span class="tag fixo">Fixo</span><span class="tag tm">Template Method</span><span class="tag br">Bridge</span><span class="tag fm">Factory Method</span></div>`;
+  const origem = `<p class="note">${java ? `Passos observados no <b>back-end Java</b> (${state.api.endereco}), no <code>processar()</code> real.` : 'Modo offline: passos executados no navegador, pela cópia das classes em JavaScript.'}</p>`;
   if (!state.trace || (!state.trace.length && !state.erroMontagem)) {
-    body.innerHTML = legenda + `<div class="empty">Faça uma cobrança para ver os 8 passos de <code>processar()</code> acontecendo aqui.</div>
-      <p class="note">As telas usam as mesmas classes do repositório Java: <code>Cobranca</code> conduz o fluxo (Template Method), delega o pagamento a um <code>MeioPagamento</code> (Bridge) e cada subclasse cria o seu comprovante (Factory Method).</p>`;
+    body.innerHTML = legenda + origem + `<div class="empty">Faça uma cobrança para ver os 8 passos de <code>processar()</code> acontecendo aqui.</div>
+      <p class="note"><code>Cobranca</code> conduz o fluxo (Template Method), delega o pagamento a um <code>MeioPagamento</code> (Bridge) e cada subclasse cria o seu comprovante (Factory Method).</p>`;
     return;
   }
-  const ev = state.trace, total = ev.length, falhou = ev.some(e => !e.ok);
-  const status = state.erroMontagem ? 'Falhou ao montar' : state.mostrados < total ? `Passo ${state.mostrados} de 8` : falhou ? `Interrompido no passo ${total}` : 'Concluído · 8 de 8';
+  const ev = state.trace, total = ev.length, falhouAlgum = ev.some(e => !e.ok);
+  const status = state.erroMontagem ? 'Falhou ao montar' : state.mostrados < total ? `Passo ${state.mostrados} de 8` : falhouAlgum ? `Interrompido no passo ${total}` : 'Concluído · 8 de 8';
   const passos = [];
   for (let n = 1; n <= 8; n++) {
     const e = ev.find(x => x.n === n), p = PASSOS[n];
@@ -957,13 +1054,13 @@ function renderDev() {
       else if (e.quem) quem = e.quem.map(q => q.m === null ? `Executado por <b>${q.dono}</b>, sem a cobrança saber qual meio é` : q.padrao ? `<code>${q.m}()</code>: padrão de <b>Cobranca</b>` : `<code>${q.m}()</code>: sobrescrito em <b>${q.dono}</b>`).join(' · ');
     }
     const usouPadrao = visivel && e.quem && e.quem.length === 1 && e.quem[0].padrao && p[2] === 'Gancho';
-    passos.push(`<li class="dstep ${visivel ? 'done' : 'pending'}${visivel && n === state.mostrados && state.mostrados < 8 && !falhou ? ' current' : ''}${visivel && !e.ok ? ' failed' : ''}">
+    passos.push(`<li class="dstep ${visivel ? 'done' : 'pending'}${visivel && n === state.mostrados && state.mostrados < 8 && !falhouAlgum ? ' current' : ''}${visivel && !e.ok ? ' failed' : ''}">
       <span class="n">${n}</span><div class="b"><span class="t">${p[0]}<span class="tag ${p[1]}">${p[2]}</span>${usouPadrao ? '<span class="tag padrao">usou o padrão</span>' : ''}</span>
       <span class="call">${p[3]}</span>${visivel ? `<span class="who">${quem}</span><span class="out">${!e.ok ? '<b>' + e.erro + ':</b> ' : ''}${e.out}</span>` : ''}</div></li>`);
   }
   const avancavel = state.passoAPasso && state.mostrados < total;
-  body.innerHTML = legenda + `<div class="code">${state.montagem}</div>
-    ${state.erroMontagem ? `<div class="dstep failed"><span class="n">!</span><div class="b"><span class="t">Construtor recusou a combinação</span><span class="out"><b>${state.erroMontagem.constructor.name}:</b> ${state.erroMontagem.message}</span><span class="who"><code>CobrancaPlanoAnual</code> perguntou <code>meio.aceitaParcelamento()</code> e recebeu <code>false</code></span></div></div>` : ''}
+  body.innerHTML = legenda + origem + `<div class="code">${state.montagem}</div>
+    ${state.erroMontagem ? `<div class="dstep failed"><span class="n">!</span><div class="b"><span class="t">Construtor recusou a combinação</span><span class="out"><b>${state.erroMontagem.classe}:</b> ${state.erroMontagem.mensagem}</span><span class="who"><code>CobrancaPlanoAnual</code> perguntou <code>meio.aceitaParcelamento()</code> e recebeu <code>false</code></span></div></div>` : ''}
     <div class="dev-ctrl"><span class="dev-status">${status}</span></div>
     <ol class="dsteps">${passos.join('')}</ol>
     <div class="dev-ctrl">
@@ -982,41 +1079,47 @@ function abrirDev(abrir) {
 /* =====================================================================
    EVENTOS
    ===================================================================== */
-document.addEventListener('click', e => {
-  const t = e.target.closest('button, [data-tx]');
-  if (!t) return;
+document.addEventListener('click', async e => {
+  const t = e.target.closest('button');
+  if (!t || !state.data) return;
   const d = t.dataset;
-  if (d.view) return go(d.view);
-  if (d.new) return abrirFluxo(null);
-  if (d.cobrar != null) return abrirFluxo(+d.cobrar);
-  if (d.filtro) { state.filtro = d.filtro; return render(); }
-  if (d.tx) { const l = livro.lancamentos.find(x => x.t.id === d.tx); state.flow = null; state.recibo = { l, aluno: l.t.aluno, novo: false }; $('overlay').hidden = false; return renderSheet(); }
-  if (d.close) return fecharSheet();
-  if (d.copy) return copiar(d.copy);
-  if (d.confirmar) { const l = livro.lancamentos.find(x => x.t.id === d.confirmar); l.confirmado = true; state.recibo.novo = false; toast('Pagamento recebido de ' + l.t.aluno.nome.split(' ')[0]); renderSheet(); return render(); }
-  if (d.retry) { const f = state.flow; f.meio = d.retry; f.recusa = false; return executar(d.retry); }
-  if (t.id === 'runAgenda') {
-    const antes = livro.lancamentos.length;
-    const r = agendador.executar(10);
-    for (const c of r.comprovantes) { const l = livro.lancamentos.find(x => x.t.id === c.numero()); if (l) l.comprovante = c; }
-    toast(`${r.comprovantes.length} cobrança${r.comprovantes.length === 1 ? '' : 's'} gerada${r.comprovantes.length === 1 ? '' : 's'}${r.ignorados.length ? ' · ' + r.ignorados.join(', ') + ' ignorada (bloqueada)' : ''}`);
-    return render();
-  }
-  if (t.id === 'devToggle') return abrirDev(true);
-  if (t.id === 'devClose') return abrirDev(false);
-  const f = state.flow; if (!f) return;
-  if (d.back) { f.step = Math.max(1, f.step - 1); return renderSheet(); }
-  if (d.aluno != null) { f.aluno = +d.aluno; f.meio = ALUNOS[f.aluno].formaPreferida; if (!meios.has(f.meio)) f.meio = null; f.step = 2; return renderSheet(); }
-  if (d.tipo) { f.tipo = d.tipo; if (f.tipo !== 'anual') f.parcelas = 1; return renderSheet(); }
-  if (d.item) { f.item = d.item; return renderSheet(); }
-  if (d.meioSel) { f.meio = d.meioSel; if (!meios.get(f.meio).aceitaParcelamento()) f.parcelas = 1; return renderSheet(); }
-  if (d.next) { f.step++; return renderSheet(); }
+  try {
+    if (d.view) return go(d.view);
+    if (d.new) return abrirFluxo(null);
+    if (d.cobrar) return abrirFluxo(d.cobrar);
+    if (d.filtro) { state.filtro = d.filtro; return render(); }
+    if (d.tx) { const l = state.data.lancamentos.find(x => x.id === d.tx); if (!l) return; state.flow = null; state.recibo = { l, aluno: alunoPorMat(l.aluno.matricula), novo: false }; $('overlay').hidden = false; return renderSheet(); }
+    if (d.close) return fecharSheet();
+    if (d.copy) return copiar(d.copy);
+    if (d.confirmar) {
+      const l = await state.api.confirmar(d.confirmar); await recarregar();
+      state.recibo = { ...state.recibo, l, novo: false };
+      toast('Pagamento recebido de ' + l.aluno.nome.split(' ')[0]); renderSheet(); return render();
+    }
+    if (d.retry) { const f = state.flow; if (!f) return; f.meio = d.retry; f.recusa = false; return executar(d.retry); }
+    if (t.id === 'runAgenda') {
+      const r = await state.api.agendar(10); await recarregar();
+      toast(`${r.gerados} cobrança${r.gerados === 1 ? '' : 's'} gerada${r.gerados === 1 ? '' : 's'}${r.ignorados.length ? ' · ' + r.ignorados.join(', ') + ' ignorada (bloqueada)' : ''}`);
+      return render();
+    }
+    if (t.id === 'devToggle') return abrirDev(true);
+    if (t.id === 'devClose') return abrirDev(false);
+    const f = state.flow; if (!f) return;
+    if (d.back) { f.step = Math.max(1, f.step - 1); return renderSheet(); }
+    if (d.aluno) { f.aluno = d.aluno; const a = alunoPorMat(f.aluno); f.meio = meioObj(a.formaPreferida) ? a.formaPreferida : null; f.previas = null; f.step = 2; return renderSheet(); }
+    if (d.tipo) { f.tipo = d.tipo; if (f.tipo !== 'anual') f.parcelas = 1; return renderSheet(); }
+    if (d.item) { f.item = d.item; return renderSheet(); }
+    if (d.meioSel) { f.meio = d.meioSel; const mo = meioObj(f.meio); if (!mo || !mo.aceitaParcelamento) f.parcelas = 1; return renderSheet(); }
+    if (d.next) { f.step++; return renderSheet(); }
+  } catch (err) { falhou(err); }
 });
-document.addEventListener('change', e => {
+document.addEventListener('change', async e => {
   const m = e.target.dataset && e.target.dataset.meio;
   if (!m) return;
-  if (e.target.checked) { meios.set(m, new PagamentoDebitoAutomatico()); toast('Débito automático ativado. Nenhuma regra de cobrança mudou.'); }
-  else { meios.delete(m); toast('Débito automático desativado'); }
+  try {
+    await state.api.definirDebito(e.target.checked); await recarregar();
+    toast(e.target.checked ? 'Débito automático ativado. Nenhuma regra de cobrança mudou.' : 'Débito automático desativado');
+  } catch (err) { falhou(err); }
   render();
 });
 $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) fecharSheet(); });
@@ -1027,20 +1130,13 @@ $('newTop').dataset.new = '1';
 $('devClose').innerHTML = ico('x');
 $('devToggle').innerHTML = ico('code') + 'Por dentro';
 
-/* movimentos de exemplo do dia, processados pelas próprias classes */
-(function exemplos() {
-  const bruno = ALUNOS[1], ana = ALUNOS[0], elisa = ALUNOS[4];
-  const regs = [
-    servico.montar(elisa, { tipo: 'avulsa', item: ITENS[2] }, 'boleto'),
-    servico.montar(bruno, { tipo: 'avulsa', item: ITENS[0] }, 'pix'),
-    servico.montar(ana, { tipo: 'avulsa', item: ITENS[1] }, 'cartao'),
-  ];
-  const horas = [8, 9, 11];
-  regs.forEach((c, i) => { const comp = c.processar(); const l = livro.lancamentos[0]; l.comprovante = comp; const q = new Date(); q.setHours(horas[i], 12 + i * 17, 0, 0); l.quando = q; });
-  livro.lancamentos.find(l => l.t.aluno === bruno).confirmado = true;
+(async function iniciar() {
+  render();
+  state.api = await detectarApi();
+  try { await recarregar(); } catch (e) { state.api = criarApiLocal(); await recarregar(); }
+  render();
+  renderDev();
 })();
-render();
-renderDev();
 </script>
 
 </html>
