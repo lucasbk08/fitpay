@@ -222,6 +222,10 @@ public final class FitPayApi {
 
     /** Roda o Agendador do núcleo para as mensalidades que vencem no dia informado. */
     public synchronized Map<String, Object> agendar(int dia) {
+        if (dia < 1 || dia > competencia.lengthOfMonth()) {
+            throw new RequisicaoInvalida("Dia inválido para " + rotulo(competencia) + ": " + dia
+                    + " (use de 1 a " + competencia.lengthOfMonth() + ")");
+        }
         Map<FormaPagamento, MeioPagamento> porForma = new EnumMap<>(FormaPagamento.class);
         porForma.put(FormaPagamento.PIX, meios.get("pix"));
         porForma.put(FormaPagamento.CARTAO, meios.get("cartao"));
@@ -265,7 +269,14 @@ public final class FitPayApi {
         return switch (p.tipo() == null ? "" : p.tipo()) {
             case "mensalidade" -> new CobrancaMensalidade(aluno, meio, livroCaixa, notif, aluno.plano(), competencia);
             case "avulsa" -> new CobrancaAvulsa(aluno, meio, livroCaixa, notif, item(p.item()));
-            case "anual" -> new CobrancaPlanoAnual(aluno, meio, livroCaixa, notif, aluno.plano(), Math.max(1, p.parcelas()));
+            case "anual" -> {
+                // Transacao só aceita de 1 a 12 parcelas; checar aqui evita que o erro apareça
+                // no meio do processar() (passo 4) e a prévia mostre um valor que não pode ser cobrado.
+                if (p.parcelas() < 1 || p.parcelas() > 12) {
+                    throw new IllegalArgumentException("Parcelas devem estar entre 1 e 12");
+                }
+                yield new CobrancaPlanoAnual(aluno, meio, livroCaixa, notif, aluno.plano(), p.parcelas());
+            }
             default -> throw new RequisicaoInvalida("Tipo de cobrança inválido: " + p.tipo());
         };
     }

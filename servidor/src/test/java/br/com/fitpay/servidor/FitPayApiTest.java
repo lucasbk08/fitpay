@@ -88,6 +88,24 @@ class FitPayApiTest {
     }
 
     @Test
+    @DisplayName("Agendador recusa dia que não existe no mês")
+    void agendadorDiaInvalido() {
+        assertThrows(FitPayApi.RequisicaoInvalida.class, () -> api.agendar(0));
+        assertThrows(FitPayApi.RequisicaoInvalida.class, () -> api.agendar(32));
+    }
+
+    @Test
+    @DisplayName("Plano anual com mais de 12 parcelas é recusado na montagem, sem lançamento")
+    void planoAnualParcelasDemais() {
+        int antes = lancamentos();
+        Map<String, Object> r = api.cobrar(new Pedido("2024-0187", "anual", null, 13, "cartao", false));
+        assertEquals(true, campo(r.get("erro"), "montagem"));
+        assertEquals(antes, lancamentos());
+        Map<String, Object> previa = api.previa(new Pedido("2024-0187", "anual", null, 13, "cartao", false));
+        assertTrue(previa.containsKey("erro"));
+    }
+
+    @Test
     @DisplayName("Prévia usa o cálculo da própria subclasse")
     void previa() {
         Map<String, Object> r = api.previa(new Pedido("2024-0187", "mensalidade", null, 1, "cartao", false));
