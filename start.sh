@@ -36,7 +36,11 @@ javac --release 17 -encoding UTF-8 -d "$SAIDA" @"$RAIZ/.fontes.txt"
 rm -f "$RAIZ/.fontes.txt"
 
 # 4. Inicia o servidor
-java -cp "$SAIDA" br.com.fitpay.servidor.ServidorFitPay "$PORTA" &
+# No WSL, o navegador roda no Windows e não alcança o 127.0.0.1 do Linux: escuta em 0.0.0.0.
+ENDERECO="localhost"
+WSL=0
+if grep -qi microsoft /proc/version 2>/dev/null; then ENDERECO="0.0.0.0"; WSL=1; fi
+java -cp "$SAIDA" br.com.fitpay.servidor.ServidorFitPay "$PORTA" "$ENDERECO" &
 PID=$!
 trap 'echo; echo "Parando o FitPay..."; kill $PID 2>/dev/null; wait $PID 2>/dev/null; exit 0' INT TERM
 
@@ -48,7 +52,8 @@ for _ in $(seq 1 50); do
 done
 
 # 6. Abre a tela no navegador
-if command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1 || true
+if [ "$WSL" = 1 ] && command -v cmd.exe >/dev/null 2>&1; then (cd /mnt/c 2>/dev/null; cmd.exe /c start "" "$URL" >/dev/null 2>&1) || true
+elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL" >/dev/null 2>&1 || true
 elif command -v open >/dev/null 2>&1; then open "$URL"
 elif command -v cmd.exe >/dev/null 2>&1; then cmd.exe /c start "" "$URL" >/dev/null 2>&1 || true
 else echo "Abra no navegador: $URL"

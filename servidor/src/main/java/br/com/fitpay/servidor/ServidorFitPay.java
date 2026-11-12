@@ -28,7 +28,8 @@ import java.util.Map;
  * POST /api/meios/debito                   liga ou desliga o débito automático
  * </pre>
  *
- * Uso: {@code java -cp out br.com.fitpay.servidor.ServidorFitPay [porta]}, porta padrão 8080.
+ * Uso: {@code java -cp out br.com.fitpay.servidor.ServidorFitPay [porta] [endereço]},
+ * porta padrão 8080 e endereço padrão localhost (no WSL, use 0.0.0.0).
  */
 public final class ServidorFitPay {
 
@@ -38,10 +39,12 @@ public final class ServidorFitPay {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         int porta = args.length > 0 ? Integer.parseInt(args[0]) : 8080;
+        // No WSL o navegador do Windows não alcança o 127.0.0.1 do Linux; o start.sh passa 0.0.0.0.
+        String endereco = args.length > 1 ? args[1] : "localhost";
         ServidorFitPay servidor = new ServidorFitPay(FitPayApi.comDadosDeExemplo());
         HttpServer http;
         try {
-            http = HttpServer.create(new InetSocketAddress("localhost", porta), 0);
+            http = HttpServer.create(new InetSocketAddress(endereco, porta), 0);
         } catch (BindException e) {
             System.err.println("A porta " + porta + " já está em uso. Rode com outra porta, por exemplo: 8081");
             return;
