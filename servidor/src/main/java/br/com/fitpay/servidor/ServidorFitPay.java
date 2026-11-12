@@ -1,5 +1,6 @@
 package br.com.fitpay.servidor;
 
+import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -11,6 +12,8 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,11 +52,33 @@ public final class ServidorFitPay {
             System.err.println("A porta " + porta + " já está em uso. Rode com outra porta, por exemplo: 8081");
             return;
         }
-        http.createContext("/api/", servidor::api);
-        http.createContext("/", servidor::pagina);
+        http.createContext("/api/", servidor::api).getFilters().add(new Log());
+        http.createContext("/", servidor::pagina).getFilters().add(new Log());
         http.start();
         System.out.println("FitPay rodando em http://localhost:" + porta + "  (Ctrl+C para parar)");
         Thread.currentThread().join();
+    }
+
+    // ------------------------------------------------------------------ log
+
+    /** Imprime uma linha por requisição: hora, método, caminho, status e tempo. */
+    static final class Log extends Filter {
+        @Override
+        public void doFilter(HttpExchange ex, Chain chain) throws IOException {
+            long inicio = System.nanoTime();
+            try {
+                chain.doFilter(ex);
+            } finally {
+                long ms = (System.nanoTime() - inicio) / 1_000_000;
+                String uri = ex.getRequestURI().toString();
+                System.out.printf("%s  %-4s %-45s %d  %d ms%n",
+                        LocalTime.now().truncatedTo(ChronoUnit.SECONDS),
+                        ex.getRequestMethod(), uri, ex.getResponseCode(), ms);
+            }
+        }
+
+        @Override
+        public String description() { return "log de requisições"; }
     }
 
     // ------------------------------------------------------------------ API
